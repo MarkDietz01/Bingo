@@ -37,11 +37,6 @@
           <button data-mode="audio">Muziek</button>
         </div>
       </div>
-      <div class="control" id="classicTools">
-        <label>
-          <input type="checkbox" id="useClassicNumbers" checked /> Gebruik standaard nummers 1-75
-        </label>
-      </div>
       <div class="two-col">
         <div class="control">
           <label for="gridSize">Rij/kolom aantal</label>
@@ -62,22 +57,6 @@
         <div class="input-list" id="itemList"></div>
         <button id="addItem" class="ghost full">Nieuw item</button>
       </div>
-      <div class="control" id="musicTools" style="display:none;">
-        <label>Muziekbronnen</label>
-        <textarea id="playlistInput" rows="3" placeholder="Plak een Spotify of YouTube playlist-link of regels met 'Titel - Artiest'"></textarea>
-        <div class="two-col small-gap">
-          <button id="importPlaylist" class="ghost">Importeer playlist</button>
-          <label class="upload-label">
-            <input type="file" id="mp3Upload" accept="audio/*" multiple />
-            Upload mp3's
-          </label>
-        </div>
-        <div class="two-col small-gap">
-          <button id="startMusic" class="primary">Start muziek bingo</button>
-          <button id="revealTrack" class="ghost">Toon huidig nummer</button>
-        </div>
-        <p class="hint">Alle nummers worden willekeurig en éénmalig afgespeeld. Voeg titel & artiest toe voor de bingo kaart en export.</p>
-      </div>
     </section>
 
     <section class="panel preview">
@@ -89,14 +68,6 @@
         <div class="badge" id="modeBadge">Klassiek</div>
       </div>
       <div class="bingo" id="bingoBoard"></div>
-      <div id="nowPlayingPanel" class="now-playing" style="display:none;">
-        <div>
-          <p class="eyebrow">Muziekspeler</p>
-          <p id="nowPlaying" class="now-title">Geen nummer gestart</p>
-          <p id="nowArtist" class="now-artist"></p>
-        </div>
-        <audio id="audioPlayer" controls></audio>
-      </div>
     </section>
   </main>
 

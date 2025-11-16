@@ -101,16 +101,6 @@ input[type="text"], input[type="number"], input[type="color"] {
 
 input[type="color"] { padding: 6px; height: 44px; cursor: pointer; }
 
-textarea {
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px;
-  font-family: inherit;
-  font-size: 14px;
-  background: #f8fafc;
-}
-
 .segmented {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -138,10 +128,6 @@ textarea {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   align-items: center;
-}
-
-.two-col.small-gap {
-  gap: 8px;
 }
 
 .checkbox label {
@@ -209,27 +195,6 @@ button.ghost {
 
 button.full { width: 100%; }
 
-.upload-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px;
-  border: 1px dashed var(--border);
-  border-radius: 12px;
-  background: #fff;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.upload-label input { display: none; }
-
-.hint {
-  color: var(--muted);
-  margin: 8px 0 0;
-  font-size: 13px;
-}
-
 .preview-header {
   display: flex;
   justify-content: space-between;
@@ -244,28 +209,6 @@ button.full { width: 100%; }
   padding: 16px;
   border-radius: 14px;
   border: 1px dashed var(--border);
-}
-
-.now-playing {
-  margin-top: 16px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: #f8fafc;
-}
-
-.now-title {
-  margin: 4px 0;
-  font-weight: 700;
-}
-
-.now-artist {
-  margin: 0;
-  color: var(--muted);
 }
 
 .cell {

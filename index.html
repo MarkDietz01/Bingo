@@ -17,6 +17,7 @@
       <p class="lede">Kies tussen afbeeldingen, muziek of klassieke bingo. Stel je kaart samen en deel hem direct.</p>
     </div>
     <div class="header-actions">
+      <button id="refreshButton" class="ghost">Herlaad kaart</button>
       <button id="resetButton" class="ghost">Opnieuw beginnen</button>
       <button id="exportButton" class="primary">Exporteer kaart</button>
     </div>
@@ -76,6 +77,13 @@
           <label>Invoervelden</label>
           <div class="input-list" id="itemList"></div>
           <button id="addItem" class="ghost full">Nieuw item</button>
+          <div class="two-col small-gap stack" id="imageUploadRow">
+            <label class="upload-label" id="imageUploadLabel">
+              <input type="file" id="bulkImageUpload" accept="image/*" multiple />
+              Meerdere afbeeldingen toevoegen
+            </label>
+            <p class="hint">Sleep of selecteer meerdere afbeeldingen tegelijk; er wordt automatisch een rij per bestand gemaakt.</p>
+          </div>
         </div>
       <div class="control" id="musicTools" style="display:none;">
         <label>Muziekbronnen</label>

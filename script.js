@@ -10,6 +10,7 @@ const gridSizeSelect = document.getElementById('gridSizeSelect');
 const freeCenterCheckbox = document.getElementById('freeCenter');
 const bgColorInput = document.getElementById('bgColor');
 const resetButton = document.getElementById('resetButton');
+const refreshButton = document.getElementById('refreshButton');
 const exportButton = document.getElementById('exportButton');
 const classicSourceSelect = document.getElementById('classicSourceSelect');
 const addItemButton = document.getElementById('addItem');
@@ -26,6 +27,7 @@ const nowArtistText = document.getElementById('nowArtist');
 const nowPlayingPanel = document.getElementById('nowPlayingPanel');
 const historyPills = document.getElementById('historyPills');
 const audioPlayer = document.getElementById('audioPlayer');
+const bulkImageUpload = document.getElementById('bulkImageUpload');
 
 const MODE_COPY = {
   text: 'Klassiek',
@@ -52,6 +54,8 @@ let audioState = {
   reveal: false
 };
 
+let previewDirty = false;
+
 function init() {
   titleInput.value = state.title;
   bgColorInput.value = state.bgColor;
@@ -59,6 +63,7 @@ function init() {
   freeCenterCheckbox.checked = state.freeCenter;
   modeSelect.value = state.mode;
   classicSourceSelect.value = state.useClassicNumbers ? 'numbers' : 'custom';
+  refreshButton.disabled = true;
   attachListeners();
   addItem();
   addItem();
@@ -68,12 +73,14 @@ function init() {
 function attachListeners() {
   titleInput.addEventListener('input', () => {
     state.title = titleInput.value || 'Mijn Bingo';
-    render();
+    previewTitle.textContent = state.title;
+    markDirty();
   });
 
   bgColorInput.addEventListener('input', () => {
     state.bgColor = bgColorInput.value;
-    render();
+    bingoBoard.style.backgroundColor = state.bgColor;
+    markDirty();
   });
 
   gridSizeSelect.addEventListener('change', () => {
@@ -81,25 +88,25 @@ function attachListeners() {
     const clamped = Math.max(3, Math.min(7, value || 3));
     state.grid = clamped;
     gridSizeSelect.value = String(clamped);
-    render();
+    markDirty();
   });
 
   freeCenterCheckbox.addEventListener('change', () => {
     state.freeCenter = freeCenterCheckbox.checked;
-    render();
+    markDirty();
   });
 
   classicSourceSelect.addEventListener('change', () => {
     state.useClassicNumbers = classicSourceSelect.value === 'numbers';
     toggleClassicInputs();
-    render();
+    markDirty();
   });
 
   modeSelect.addEventListener('change', () => {
     state.mode = modeSelect.value;
     updateItemPlaceholders();
     toggleModeControls();
-    render();
+    markDirty();
   });
 
   addItemButton.addEventListener('click', () => {
@@ -111,11 +118,13 @@ function attachListeners() {
     addItem();
   });
   resetButton.addEventListener('click', resetForm);
+  refreshButton.addEventListener('click', () => render());
   exportButton.addEventListener('click', exportBoard);
 
   playlistButton.addEventListener('click', () => importPlaylistItems());
   exportPlayerButton.addEventListener('click', () => exportMusicPlayer());
   mp3Upload.addEventListener('change', () => importAudioFiles(mp3Upload.files));
+  bulkImageUpload.addEventListener('change', () => importImageFiles(bulkImageUpload.files));
   startMusicButton.addEventListener('click', () => startMusicBingo());
   revealTrackButton.addEventListener('click', () => {
     audioState.reveal = true;
@@ -139,12 +148,12 @@ function addItem(data = {}) {
 
   labelInput.addEventListener('input', () => {
     item.label = labelInput.value;
-    render();
+    markDirty();
   });
 
   extraInput.addEventListener('input', () => {
     item.extra = extraInput.value;
-    render();
+    markDirty();
   });
 
   fileInput.addEventListener('change', () => {
@@ -153,7 +162,7 @@ function addItem(data = {}) {
     const reader = new FileReader();
     reader.onload = (e) => {
       item.file = e.target.result;
-      render();
+      markDirty();
     };
     reader.readAsDataURL(file);
   });
@@ -161,12 +170,12 @@ function addItem(data = {}) {
   node.querySelector('.icon-button').addEventListener('click', () => {
     state.items = state.items.filter((i) => i !== item);
     node.remove();
-    render();
+    markDirty();
   });
 
   itemList.appendChild(node);
   updateItemPlaceholders();
-  render();
+  markDirty();
 }
 
 function updateItemPlaceholders() {
@@ -174,7 +183,7 @@ function updateItemPlaceholders() {
   const extraPH = {
     text: 'Optioneel extra info',
     image: 'Afbeeldings-URL (of upload)',
-    audio: 'Artiest of streaming-URL'
+    audio: 'Artiest (metadata wordt ingevuld) of streaming-URL'
   }[state.mode];
 
   document.querySelectorAll('.item-label').forEach((input) => {
@@ -219,6 +228,12 @@ function getPool() {
   return unique;
 }
 
+function markDirty() {
+  previewDirty = true;
+  refreshButton.disabled = false;
+  bingoBoard.classList.add('stale');
+}
+
 function render() {
   previewTitle.textContent = state.title || 'Mijn Bingo';
   modeBadge.textContent = MODE_COPY[state.mode];
@@ -229,71 +244,61 @@ function render() {
   toggleModeControls();
   toggleClassicInputs();
 
-  const size = state.grid;
+  const composition = composeCard();
+  const size = composition.size;
   bingoBoard.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
 
-  const pool = getPool();
-  const cellCount = size * size;
-  const cells = [];
-  const hasCenter = state.freeCenter && size % 2 === 1;
-  const usableSlots = hasCenter ? cellCount - 1 : cellCount;
-  const hasEnoughItems = pool.length >= usableSlots;
+  exportButton.disabled = !composition.hasEnough;
+  exportButton.title = composition.hasEnough ? '' : 'Voeg meer items toe voor je exporteert';
 
-  exportButton.disabled = !hasEnoughItems;
-  exportButton.title = hasEnoughItems ? '' : 'Voeg meer items toe voor je exporteert';
-
-  if (!hasEnoughItems) {
+  if (!composition.hasEnough) {
     bingoBoard.innerHTML = '';
     const warning = document.createElement('div');
     warning.className = 'empty-state';
+    const missing = composition.required - composition.pool.length;
     warning.innerHTML = `
       <p class="eyebrow">Nog niet klaar</p>
-      <h3>Voeg ${usableSlots - pool.length} extra ${state.mode === 'text' ? 'items' : 'tracks'} toe</h3>
-      <p class="muted">Je hebt minimaal ${usableSlots} unieke items nodig om een ${size}x${size} kaart te vullen.</p>
+      <h3>Voeg ${missing} extra ${state.mode === 'text' ? 'items' : 'tracks'} toe</h3>
+      <p class="muted">Je hebt minimaal ${composition.required} unieke items nodig om een ${size}x${size} kaart te vullen.</p>
     `;
     bingoBoard.appendChild(warning);
     renderNowPlaying();
+    previewDirty = false;
+    refreshButton.disabled = true;
+    bingoBoard.classList.remove('stale');
     return;
   }
 
-  const selections = sampleItems(pool, usableSlots);
-  let cursor = 0;
-
-  for (let i = 0; i < cellCount; i++) {
-    const isCenter = state.freeCenter && size % 2 === 1 && i === Math.floor(cellCount / 2);
+  const cells = composition.cells.map((cell) => {
     const node = cellTemplate.content.firstElementChild.cloneNode(true);
     const labelNode = node.querySelector('.cell-label');
     const mediaNode = node.querySelector('.cell-media');
 
-    if (isCenter) {
+    if (cell.type === 'center') {
       node.classList.add('free');
       labelNode.textContent = 'Gratis vak';
       mediaNode.innerHTML = '';
-      cells.push(node);
-      continue;
+      return node;
     }
 
-    const pick = selections[cursor++] || null;
-
-    if (!pick) {
+    if (cell.type === 'empty') {
       node.classList.add('empty');
       labelNode.textContent = 'Voeg meer items toe';
-      cells.push(node);
-      continue;
+      return node;
     }
 
     if (state.mode === 'image') {
-      const src = pick.file || pick.extra;
+      const src = cell.file || cell.extra;
       if (src) {
         const img = document.createElement('img');
         img.src = src;
-        img.alt = pick.label || 'Bingo item';
+        img.alt = cell.label || 'Bingo item';
         mediaNode.appendChild(img);
       }
     }
 
     if (state.mode === 'audio') {
-      const audioSrc = pick.file || pick.extra;
+      const audioSrc = cell.file || cell.extra;
       if (audioSrc) {
         const audio = document.createElement('audio');
         audio.controls = true;
@@ -302,21 +307,56 @@ function render() {
       }
     }
 
-    labelNode.textContent = pick.label || pick.extra || 'Naamloos item';
-    if (pick.extra && state.mode === 'text') {
+    labelNode.textContent = cell.label || cell.extra || 'Naamloos item';
+    if (cell.extra && state.mode === 'text') {
       const small = document.createElement('small');
-      small.textContent = pick.extra;
+      small.textContent = cell.extra;
       small.style.display = 'block';
       small.style.color = '#6b7280';
       labelNode.appendChild(small);
     }
-
-    cells.push(node);
-  }
+    return node;
+  });
 
   bingoBoard.innerHTML = '';
   cells.forEach((cell) => bingoBoard.appendChild(cell));
   renderNowPlaying();
+  previewDirty = false;
+  refreshButton.disabled = true;
+  bingoBoard.classList.remove('stale');
+}
+
+function composeCard(poolOverride) {
+  const pool = poolOverride || getPool();
+  const size = state.grid;
+  const cellCount = size * size;
+  const hasCenter = state.freeCenter && size % 2 === 1;
+  const usableSlots = hasCenter ? cellCount - 1 : cellCount;
+  const hasEnough = pool.length >= usableSlots;
+
+  if (!hasEnough) {
+    return { hasEnough, required: usableSlots, pool, size, cells: [], hasCenter };
+  }
+
+  const selections = sampleItems(pool, usableSlots);
+  let cursor = 0;
+  const cells = [];
+
+  for (let i = 0; i < cellCount; i++) {
+    const isCenter = hasCenter && i === Math.floor(cellCount / 2);
+    if (isCenter) {
+      cells.push({ type: 'center' });
+      continue;
+    }
+    const pick = selections[cursor++] || null;
+    if (!pick) {
+      cells.push({ type: 'empty' });
+      continue;
+    }
+    cells.push({ type: 'item', label: pick.label, extra: pick.extra, file: pick.file });
+  }
+
+  return { hasEnough, required: usableSlots, pool, size, cells, hasCenter };
 }
 
 function sampleItems(pool, count) {
@@ -361,39 +401,121 @@ function resetForm() {
 }
 
 function exportBoard() {
-  const size = state.grid;
-  const pool = getPool();
-  const hasCenter = state.freeCenter && size % 2 === 1;
-  const required = hasCenter ? size * size - 1 : size * size;
-  if (pool.length < required) {
-    alert(`Voeg minimaal ${required} unieke items toe om te exporteren.`);
+  const firstCard = composeCard();
+  if (!firstCard.hasEnough) {
+    alert(`Voeg minimaal ${firstCard.required} unieke items toe om te exporteren.`);
     return;
   }
 
-  const link = document.createElement('a');
+  const secondCard = composeCard(firstCard.pool);
+  const cards = [firstCard, secondCard.hasEnough ? secondCard : firstCard];
+  const printHtml = buildPrintDocument(cards);
 
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Pop-up geblokkeerd. Sta pop-ups toe om de PDF te maken.');
+    return;
+  }
+  printWindow.document.write(printHtml);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => printWindow.print(), 300);
+}
+
+function buildPrintDocument(cards) {
+  const title = escapeHtml(state.title || 'Bingo');
+  const modeLabel = escapeHtml(MODE_COPY[state.mode]);
+  const generated = new Date().toLocaleString('nl-NL');
+  const cardsHtml = cards
+    .map((card, idx) => renderCardHtml(card, idx + 1))
+    .join('');
+
+  return `<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <title>${title} — Export</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { margin: 0; padding: 12mm; font-family: 'Inter', system-ui, sans-serif; background: #f3f4f6; color: #0f172a; }
+    h1 { margin: 0 0 8px; }
+    .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; color: #6366f1; font-size: 12px; margin: 0; }
+    .muted { color: #6b7280; font-size: 13px; margin: 0 0 16px; }
+    .print-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 12px; box-shadow: 0 10px 30px rgba(15,23,42,0.08); page-break-inside: avoid; }
+    .card header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .pill { background: #eef2ff; color: #4f46e5; padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; }
+    .print-board { display: grid; gap: 6px; border: 1px dashed #e5e7eb; border-radius: 12px; padding: 8px; background: ${state.bgColor}; }
+    .cell { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; min-height: 80px; display: grid; place-items: center; text-align: center; }
+    .cell.free { background: #eef2ff; color: #4f46e5; font-weight: 700; }
+    .cell img { max-width: 100%; max-height: 120px; border-radius: 8px; object-fit: cover; }
+    .cell small { display: block; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <p class="eyebrow">Bingo export</p>
+  <h1>${title}</h1>
+  <p class="muted">${modeLabel} • ${generated} — minstens 2 kaarten per A4</p>
+  <div class="print-grid">${cardsHtml}</div>
+</body>
+</html>`;
+}
+
+function renderCardHtml(card, index) {
+  const title = escapeHtml(state.title || 'Bingo');
+  const modeLabel = escapeHtml(MODE_COPY[state.mode]);
+  const cellsHtml = card.cells.map((cell) => renderCellHtml(cell)).join('');
+  return `
+  <section class="card">
+    <header>
+      <div>
+        <p class="eyebrow">Kaart ${index}</p>
+        <h3 style="margin:0">${title}</h3>
+      </div>
+      <span class="pill">${modeLabel}</span>
+    </header>
+    <div class="print-board" style="grid-template-columns: repeat(${card.size}, 1fr);">
+      ${cellsHtml}
+    </div>
+  </section>`;
+}
+
+function renderCellHtml(cell) {
+  if (cell.type === 'center') return '<div class="cell free">Gratis vak</div>';
+  if (cell.type === 'empty') return '<div class="cell empty">Leeg</div>';
+  if (state.mode === 'image') {
+    const src = cell.file || cell.extra || '';
+    const alt = escapeHtml(cell.label || 'Bingo item');
+    const label = escapeHtml(cell.label || '');
+    return `<div class="cell"><img src="${src}" alt="${alt}" />${label ? `<small>${label}</small>` : ''}</div>`;
+  }
+  const label = escapeHtml(cell.label || cell.extra || 'Naamloos item');
+  const extra = cell.extra && state.mode === 'text' ? `<small>${escapeHtml(cell.extra)}</small>` : '';
   if (state.mode === 'audio') {
-    const tracks = getAudioTracks();
-    const lines = tracks.map((t) => `${t.title} - ${t.artist}`);
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
-    link.href = URL.createObjectURL(blob);
-    link.download = `${state.title || 'muziek-bingo'}_tracks.txt`;
-    link.click();
-    return;
+    const artist = cell.extra ? ` — ${escapeHtml(cell.extra)}` : '';
+    return `<div class="cell"><div>${label}${artist}</div></div>`;
   }
+  return `<div class="cell"><div>${label}${extra}</div></div>`;
+}
 
-  const html = bingoBoard.outerHTML;
-  const blob = new Blob([`<html><body>${html}</body></html>`], { type: 'text/html' });
-  link.href = URL.createObjectURL(blob);
-  link.download = `${state.title || 'bingo'}.html`;
-  link.click();
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function toggleModeControls() {
   const isAudio = state.mode === 'audio';
   const isClassic = state.mode === 'text';
+  const isImage = state.mode === 'image';
   musicTools.style.display = isAudio ? 'block' : 'none';
   classicTools.style.display = isClassic ? 'block' : 'none';
+  const uploadLabel = document.getElementById('imageUploadLabel');
+  const uploadRow = document.getElementById('imageUploadRow');
+  if (uploadLabel) uploadLabel.style.display = isImage ? 'flex' : 'none';
+  if (uploadRow) uploadRow.style.display = isImage ? 'grid' : 'none';
 }
 
 function toggleClassicInputs() {
@@ -424,7 +546,7 @@ async function importPlaylistItems() {
     addItem(parsed);
   });
   playlistInput.value = '';
-  render();
+  markDirty();
 }
 
 function extractSpotifyUrl(text) {
@@ -448,7 +570,7 @@ async function importSpotifyPlaylist(url) {
   } finally {
     playlistButton.disabled = false;
     playlistButton.textContent = 'Importeer playlist';
-    render();
+    markDirty();
   }
 }
 
@@ -492,18 +614,59 @@ function extractTitleFromUrl(url) {
   }
 }
 
-function importAudioFiles(files) {
+async function importAudioFiles(files) {
   const fileArray = Array.from(files || []);
-  fileArray.forEach((file) => {
+  for (const file of fileArray) {
+    const [tag, dataUri] = await Promise.all([readID3v1(file), readAsDataURL(file)]);
+    const label = (tag && tag.title) || file.name.replace(/\.[^.]+$/, '');
+    const extra = (tag && tag.artist) || 'Upload';
+    addItem({ label, extra, file: dataUri });
+  }
+  mp3Upload.value = '';
+}
+
+async function importImageFiles(files) {
+  if (state.mode !== 'image') {
+    state.mode = 'image';
+    modeSelect.value = 'image';
+    toggleModeControls();
+    updateItemPlaceholders();
+  }
+  const fileArray = Array.from(files || []);
+  for (const file of fileArray) {
+    const dataUri = await readAsDataURL(file);
     const label = file.name.replace(/\.[^.]+$/, '');
+    addItem({ label, extra: '', file: dataUri });
+  }
+  bulkImageUpload.value = '';
+  markDirty();
+}
+
+function readAsDataURL(file) {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUri = e.target.result;
-      addItem({ label, extra: 'Upload', file: dataUri });
-    };
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-  mp3Upload.value = '';
+}
+
+function readID3v1(file) {
+  return new Promise((resolve) => {
+    if (file.size < 128) return resolve(null);
+    const slice = file.slice(file.size - 128, file.size);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const buffer = new Uint8Array(e.target.result);
+      const text = new TextDecoder('latin1').decode(buffer);
+      if (!text.startsWith('TAG')) return resolve(null);
+      const title = text.slice(3, 33).trim();
+      const artist = text.slice(33, 63).trim();
+      resolve({ title, artist });
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsArrayBuffer(slice);
+  });
 }
 
 function getAudioTracks() {
@@ -626,63 +789,44 @@ function blobToDataUri(blob) {
 
 function buildEmbeddedPlayerScript(tracks, title) {
   const playlistJson = JSON.stringify(tracks);
-  return `"""Standalone muziek-bingo speler met ingepakte mp3's.
-
-Genereer met PyInstaller een enkel .exe-bestand:
-    pyinstaller --noconsole --onefile --name muziek_bingo_player <dit bestand>.py
-
-Dubbelklik daarna op muziek_bingo_player.exe; de speler start automatisch in je browser.
-"""
-from __future__ import annotations
-
-import http.server
-import json
-import socketserver
-import threading
-import webbrowser
-
-PLAYLIST_JSON = r'''${playlistJson}'''
-
-
-def html_document():
-    playlist = json.dumps(json.loads(PLAYLIST_JSON))
-    return f"""<!DOCTYPE html>
-<html lang=\"nl\">
+  const safeTitle = JSON.stringify(title);
+  const htmlTemplate = `<!DOCTYPE html>
+<html lang="nl">
 <head>
-  <meta charset=\"UTF-8\" />
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
-  <title>{title}</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>$title</title>
   <style>
-    body {{ font-family: 'Inter', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; display: flex; justify-content: center; padding: 32px; }}
-    .card {{ background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 18px; padding: 24px; max-width: 520px; width: 100%; box-shadow: 0 30px 80px rgba(0,0,0,0.35); }}
-    h1 {{ margin: 0 0 12px; }}
-    .eyebrow {{ text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; font-size: 12px; color: #a5b4fc; margin: 0 0 6px; }}
-    .muted {{ color: #94a3b8; margin-top: 0; }}
-    .now {{ padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid #334155; margin: 12px 0;}}
-    .pill-row {{ display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 0; }}
-    .pill {{ background: #334155; color: #e2e8f0; padding: 8px 10px; border-radius: 999px; font-size: 13px; }}
-    button {{ background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; border-radius: 12px; padding: 12px 16px; font-weight: 700; cursor: pointer; box-shadow: 0 16px 40px rgba(99,102,241,0.35); width: 100%; }}
-    audio {{ width: 100%; margin-top: 10px; }}
+    body { font-family: 'Inter', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; display: flex; justify-content: center; padding: 32px; }
+    .card { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 18px; padding: 24px; max-width: 520px; width: 100%; box-shadow: 0 30px 80px rgba(0,0,0,0.35); }
+    h1 { margin: 0 0 12px; }
+    .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; font-size: 12px; color: #a5b4fc; margin: 0 0 6px; }
+    .muted { color: #94a3b8; margin-top: 0; }
+    .now { padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid #334155; margin: 12px 0;}
+    .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 0; }
+    .pill { background: #334155; color: #e2e8f0; padding: 8px 10px; border-radius: 999px; font-size: 13px; }
+    button { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; border-radius: 12px; padding: 12px 16px; font-weight: 700; cursor: pointer; box-shadow: 0 16px 40px rgba(99,102,241,0.35); width: 100%; }
+    audio { width: 100%; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <div class=\"card\">
-    <p class=\"eyebrow\">Muziekspeler</p>
-    <h1>{title}</h1>
-    <p class=\"muted\">Alle mp3's staan in dit bestand en worden willekeurig één keer afgespeeld.</p>
-    <div class=\"now\">
-      <div id=\"trackTitle\" style=\"font-weight:700;font-size:18px;\">Klaar om te starten</div>
-      <div id=\"trackArtist\" class=\"muted\">Klik op \"Volgend nummer\"</div>
-      <audio id=\"player\" controls></audio>
+  <div class="card">
+    <p class="eyebrow">Muziekspeler</p>
+    <h1>$title</h1>
+    <p class="muted">Alle mp3's staan in dit bestand en worden willekeurig één keer afgespeeld.</p>
+    <div class="now">
+      <div id="trackTitle" style="font-weight:700;font-size:18px;">Klaar om te starten</div>
+      <div id="trackArtist" class="muted">Klik op \"Volgend nummer\"</div>
+      <audio id="player" controls></audio>
     </div>
-    <button id=\"next\">Volgend nummer</button>
+    <button id="next">Volgend nummer</button>
     <div>
-      <p class=\"muted\" style=\"margin:16px 0 6px;\">Laatste 3 nummers</p>
-      <div class=\"pill-row\" id=\"history\"></div>
+      <p class="muted" style="margin:16px 0 6px;">Laatste 3 nummers</p>
+      <div class="pill-row" id="history"></div>
     </div>
   </div>
   <script>
-    const playlist = {playlist};
+    const playlist = $playlist;
     let queue = [...playlist];
     let history = [];
     const audio = document.getElementById('player');
@@ -720,7 +864,36 @@ def html_document():
     audio.addEventListener('ended', nextTrack);
   </script>
 </body>
-</html>"""
+</html>`;
+
+  return `"""Standalone muziek-bingo speler met ingepakte mp3's.
+
+Genereer met PyInstaller een enkel .exe-bestand:
+    pyinstaller --noconsole --onefile --name muziek_bingo_player <dit bestand>.py
+
+Dubbelklik daarna op muziek_bingo_player.exe; de speler start automatisch in je browser.
+"""
+from __future__ import annotations
+
+import http.server
+import json
+import socketserver
+import string
+import threading
+import webbrowser
+
+PLAYLIST_JSON = r'''${playlistJson}'''
+TITLE = ${safeTitle}
+
+HTML_TEMPLATE = r"""${htmlTemplate}"""
+
+
+def html_document():
+    playlist = json.dumps(json.loads(PLAYLIST_JSON))
+    return string.Template(HTML_TEMPLATE).safe_substitute(
+        playlist=playlist,
+        title=TITLE,
+    )
 
 
 class _Handler(http.server.SimpleHTTPRequestHandler):
@@ -751,15 +924,15 @@ def main():
         try:
             threading.Event().wait()
         except KeyboardInterrupt:
-            print("\nStoppen...")
+            print("\\nStoppen...")
         finally:
             httpd.shutdown()
             httpd.server_close()
 
 
 if __name__ == '__main__':
-    main()
-`;
+    main()`;
 }
+
 
 init();

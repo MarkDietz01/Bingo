@@ -489,6 +489,8 @@ function importAudioFiles(files) {
       addItem({ label, extra: 'Upload', file: dataUri });
     };
     reader.readAsDataURL(file);
+    const url = URL.createObjectURL(file);
+    addItem({ label, extra: 'Upload', file: url });
   });
   mp3Upload.value = '';
 }
@@ -565,6 +567,7 @@ function renderNowPlaying(message, artist) {
 }
 
 async function exportMusicPlayer() {
+function exportMusicPlayer() {
   const tracks = getAudioTracks().filter((t) => t.src);
   if (!tracks.length) {
     alert('Upload mp3-bestanden of audio-URL\'s voordat je de speler exporteert.');
@@ -747,6 +750,88 @@ def main():
 if __name__ == '__main__':
     main()
 `;
+  const shuffled = shuffle([...tracks]);
+  const html = `<!DOCTYPE html>
+  <html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${state.title || 'Muziek Bingo Speler'}</title>
+    <style>
+      body { font-family: 'Inter', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; display: flex; justify-content: center; padding: 32px; }
+      .card { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 18px; padding: 24px; max-width: 520px; width: 100%; box-shadow: 0 30px 80px rgba(0,0,0,0.35); }
+      h1 { margin: 0 0 12px; }
+      .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; font-size: 12px; color: #a5b4fc; margin: 0 0 6px; }
+      .muted { color: #94a3b8; margin-top: 0; }
+      .now { padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid #334155; margin: 12px 0; }
+      .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 0; }
+      .pill { background: #334155; color: #e2e8f0; padding: 8px 10px; border-radius: 999px; font-size: 13px; }
+      button { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; border-radius: 12px; padding: 12px 16px; font-weight: 700; cursor: pointer; box-shadow: 0 16px 40px rgba(99,102,241,0.35); width: 100%; }
+      audio { width: 100%; margin-top: 10px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <p class="eyebrow">Muziekspeler</p>
+      <h1>${state.title || 'Muziek Bingo'}</h1>
+      <p class="muted">Alle mp3's worden willekeurig en slechts één keer afgespeeld.</p>
+      <div class="now">
+        <div id="trackTitle" style="font-weight:700;font-size:18px;">Klaar om te starten</div>
+        <div id="trackArtist" class="muted">Klik op "Volgend nummer"</div>
+        <audio id="player" controls></audio>
+      </div>
+      <button id="next">Volgend nummer</button>
+      <div>
+        <p class="muted" style="margin:16px 0 6px;">Laatste 3 nummers</p>
+        <div class="pill-row" id="history"></div>
+      </div>
+    </div>
+    <script>
+      const playlist = ${JSON.stringify(shuffled)};
+      let queue = [...playlist];
+      let history = [];
+      const audio = document.getElementById('player');
+      const titleEl = document.getElementById('trackTitle');
+      const artistEl = document.getElementById('trackArtist');
+      const historyEl = document.getElementById('history');
+
+      function renderHistory() {
+        historyEl.innerHTML = '';
+        history.slice().reverse().forEach((track) => {
+          const pill = document.createElement('span');
+          pill.className = 'pill';
+          pill.textContent = track.title + (track.artist ? ' — ' + track.artist : '');
+          historyEl.appendChild(pill);
+        });
+      }
+
+      function nextTrack() {
+        if (!queue.length) {
+          titleEl.textContent = 'Playlist klaar';
+          artistEl.textContent = '';
+          return;
+        }
+        const next = queue.shift();
+        history.push(next);
+        if (history.length > 3) history = history.slice(-3);
+        titleEl.textContent = next.title;
+        artistEl.textContent = next.artist || '';
+        audio.src = next.src;
+        renderHistory();
+        audio.play();
+      }
+
+      document.getElementById('next').addEventListener('click', nextTrack);
+      audio.addEventListener('ended', nextTrack);
+    </script>
+  </body>
+  </html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${state.title || 'muziek-bingo'}_player.html`;
+  link.click();
 }
 
 init();

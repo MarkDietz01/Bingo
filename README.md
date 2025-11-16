@@ -38,3 +38,8 @@ pyinstaller --noconsole --onefile --name muziek_bingo_player exported_player.py
 ```
 
 De resulterende `muziek_bingo_player.exe` bevat alle nummers; geen losse mp3-bestanden nodig.
+
+#### Voorbeeldexport
+1. Kies "Muziek" als bingo-type en upload mp3's of voeg streaming-links toe.
+2. Klik op **Exporteer muziekspeler (.exe)**; download het aangemaakte `..._player.py`-bestand.
+3. Draai in dezelfde map het PyInstaller-commando hierboven (de speler opent daarna vanzelf in de browser).

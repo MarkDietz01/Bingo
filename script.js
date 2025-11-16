@@ -672,6 +672,7 @@ def html_document():
     </div>
   </div>
   <script>
+    const playlist = {playlist};
     const playlist = {json.loads(PLAYLIST_JSON)};
     let queue = [...playlist];
     let history = [];

@@ -11,6 +11,7 @@ Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst,
 6. Muziek: plak een Spotify/YouTube-playlist of regels met `Titel - Artiest`, upload mp3-bestanden, klik "Start muziek bingo" en gebruik "Toon huidig nummer" om de titel/artieste te onthullen. Elk nummer wordt willekeurig en maar één keer afgespeeld.
 7. Alleen kaarten met voldoende unieke items worden gebouwd of geëxporteerd (er verschijnt een melding zodra je nog te weinig items hebt).
 8. Bekijk direct het voorbeeld. Gebruik "Exporteer kaart" om de kaart te downloaden (muziek exporteert alleen titel + artiest als tekstbestand) of "Exporteer muziekspeler (.exe)" om een PyInstaller-klaar .py-bestand te krijgen waarin alle mp3's al base64 zijn verpakt.
+8. Bekijk direct het voorbeeld. Gebruik "Exporteer kaart" om de kaart te downloaden (muziek exporteert alleen titel + artiest als tekstbestand) of "Exporteer muziekspeler (HTML)" om een standalone shuffle-speler met geschiedenis te genereren.
 9. "Opnieuw beginnen" reset alle velden en start met twee lege items.
 
 ## Kenmerken

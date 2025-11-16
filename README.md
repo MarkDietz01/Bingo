@@ -10,6 +10,7 @@ Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst,
 5. Afbeelding/audio: voeg items toe via tekst + URL of door bestanden te uploaden.
 6. Muziek: plak een Spotify/YouTube-playlist of regels met `Titel - Artiest`, upload mp3-bestanden, klik "Start muziek bingo" en gebruik "Toon huidig nummer" om de titel/artieste te onthullen. Elk nummer wordt willekeurig en maar één keer afgespeeld.
 7. Alleen kaarten met voldoende unieke items worden gebouwd of geëxporteerd (er verschijnt een melding zodra je nog te weinig items hebt).
+8. Bekijk direct het voorbeeld. Gebruik "Exporteer kaart" om de kaart te downloaden (muziek exporteert alleen titel + artiest als tekstbestand) of "Exporteer muziekspeler (.exe)" om een PyInstaller-klaar .py-bestand te krijgen waarin alle mp3's al base64 zijn verpakt.
 8. Bekijk direct het voorbeeld. Gebruik "Exporteer kaart" om de kaart te downloaden (muziek exporteert alleen titel + artiest als tekstbestand) of "Exporteer muziekspeler (HTML)" om een standalone shuffle-speler met geschiedenis te genereren.
 9. "Opnieuw beginnen" reset alle velden en start met twee lege items.
 
@@ -28,3 +29,12 @@ Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst,
    pyinstaller --noconsole --onefile --add-data "index.html;." --add-data "style.css;." --add-data "script.js;." bingo_desktop.py
    ```
 3. Het uitvoerbare bestand staat daarna in `dist/bingo_desktop.exe`. Dubbelklik om de bingo-app in je browser te starten.
+
+### Muziekspeler als enkele .exe
+Gebruik de knop "Exporteer muziekspeler (.exe)" in de UI. Je krijgt een `..._player.py`-bestand waarin alle mp3's zijn meegepakt als base64. Bouw daar een standalone speler van met:
+
+```bash
+pyinstaller --noconsole --onefile --name muziek_bingo_player exported_player.py
+```
+
+De resulterende `muziek_bingo_player.exe` bevat alle nummers; geen losse mp3-bestanden nodig.

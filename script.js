@@ -483,6 +483,12 @@ function importAudioFiles(files) {
   const fileArray = Array.from(files || []);
   fileArray.forEach((file) => {
     const label = file.name.replace(/\.[^.]+$/, '');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUri = e.target.result;
+      addItem({ label, extra: 'Upload', file: dataUri });
+    };
+    reader.readAsDataURL(file);
     const url = URL.createObjectURL(file);
     addItem({ label, extra: 'Upload', file: url });
   });
@@ -560,6 +566,7 @@ function renderNowPlaying(message, artist) {
   pills.forEach((pill) => historyPills.appendChild(pill));
 }
 
+async function exportMusicPlayer() {
 function exportMusicPlayer() {
   const tracks = getAudioTracks().filter((t) => t.src);
   if (!tracks.length) {
@@ -567,6 +574,182 @@ function exportMusicPlayer() {
     return;
   }
 
+  const embedded = [];
+  for (const track of tracks) {
+    const dataUri = await ensureDataUri(track.src);
+    if (!dataUri) {
+      alert('Een of meer nummers konden niet als bestand worden ingepakt. Gebruik mp3-upload of een directe mp3-link.');
+      return;
+    }
+    embedded.push({ title: track.title, artist: track.artist, src: dataUri });
+  }
+
+  const script = buildEmbeddedPlayerScript(embedded, state.title || 'Muziek Bingo');
+  const blob = new Blob([script], { type: 'text/x-python' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${state.title || 'muziek-bingo'}_player.py`;
+  link.click();
+}
+
+async function ensureDataUri(src) {
+  if (!src) return null;
+  if (src.startsWith('data:')) return src;
+  try {
+    const res = await fetch(src);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await blobToDataUri(blob);
+  } catch (e) {
+    return null;
+  }
+}
+
+function blobToDataUri(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject();
+    reader.readAsDataURL(blob);
+  });
+}
+
+function buildEmbeddedPlayerScript(tracks, title) {
+  const playlistJson = JSON.stringify(tracks);
+  return `"""Standalone muziek-bingo speler met ingepakte mp3's.
+
+Genereer met PyInstaller een enkel .exe-bestand:
+    pyinstaller --noconsole --onefile --name muziek_bingo_player <dit bestand>.py
+
+Dubbelklik daarna op muziek_bingo_player.exe; de speler start automatisch in je browser.
+"""
+from __future__ import annotations
+
+import http.server
+import json
+import socketserver
+import threading
+import webbrowser
+
+PLAYLIST_JSON = r'''${playlistJson}'''
+
+
+def html_document():
+    playlist = json.dumps(json.loads(PLAYLIST_JSON))
+    return f"""<!DOCTYPE html>
+<html lang=\"nl\">
+<head>
+  <meta charset=\"UTF-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />
+  <title>{title}</title>
+  <style>
+    body {{ font-family: 'Inter', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; display: flex; justify-content: center; padding: 32px; }}
+    .card {{ background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 18px; padding: 24px; max-width: 520px; width: 100%; box-shadow: 0 30px 80px rgba(0,0,0,0.35); }}
+    h1 {{ margin: 0 0 12px; }}
+    .eyebrow {{ text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; font-size: 12px; color: #a5b4fc; margin: 0 0 6px; }}
+    .muted {{ color: #94a3b8; margin-top: 0; }}
+    .now {{ padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid #334155; margin: 12px 0;}}
+    .pill-row {{ display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 0; }}
+    .pill {{ background: #334155; color: #e2e8f0; padding: 8px 10px; border-radius: 999px; font-size: 13px; }}
+    button {{ background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; border-radius: 12px; padding: 12px 16px; font-weight: 700; cursor: pointer; box-shadow: 0 16px 40px rgba(99,102,241,0.35); width: 100%; }}
+    audio {{ width: 100%; margin-top: 10px; }}
+  </style>
+</head>
+<body>
+  <div class=\"card\">
+    <p class=\"eyebrow\">Muziekspeler</p>
+    <h1>{title}</h1>
+    <p class=\"muted\">Alle mp3's staan in dit bestand en worden willekeurig één keer afgespeeld.</p>
+    <div class=\"now\">
+      <div id=\"trackTitle\" style=\"font-weight:700;font-size:18px;\">Klaar om te starten</div>
+      <div id=\"trackArtist\" class=\"muted\">Klik op \"Volgend nummer\"</div>
+      <audio id=\"player\" controls></audio>
+    </div>
+    <button id=\"next\">Volgend nummer</button>
+    <div>
+      <p class=\"muted\" style=\"margin:16px 0 6px;\">Laatste 3 nummers</p>
+      <div class=\"pill-row\" id=\"history\"></div>
+    </div>
+  </div>
+  <script>
+    const playlist = {json.loads(PLAYLIST_JSON)};
+    let queue = [...playlist];
+    let history = [];
+    const audio = document.getElementById('player');
+    const titleEl = document.getElementById('trackTitle');
+    const artistEl = document.getElementById('trackArtist');
+    const historyEl = document.getElementById('history');
+
+    function renderHistory() {
+      historyEl.innerHTML = '';
+      history.slice().reverse().forEach((track) => {
+        const pill = document.createElement('span');
+        pill.className = 'pill';
+        pill.textContent = track.title + (track.artist ? ' — ' + track.artist : '');
+        historyEl.appendChild(pill);
+      });
+    }
+
+    function nextTrack() {
+      if (!queue.length) {
+        titleEl.textContent = 'Playlist klaar';
+        artistEl.textContent = '';
+        return;
+      }
+      const next = queue.shift();
+      history.push(next);
+      if (history.length > 3) history = history.slice(-3);
+      titleEl.textContent = next.title;
+      artistEl.textContent = next.artist || '';
+      audio.src = next.src;
+      renderHistory();
+      audio.play();
+    }
+
+    document.getElementById('next').addEventListener('click', nextTrack);
+    audio.addEventListener('ended', nextTrack);
+  </script>
+</body>
+</html>"""
+
+
+class _Handler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path in ('/', '/index.html'):
+            content = html_document().encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+        self.send_response(404)
+        self.end_headers()
+
+    def log_message(self, format, *args):  # noqa: A003
+        return
+
+
+def main():
+    socketserver.TCPServer.allow_reuse_address = True
+    with socketserver.TCPServer(("127.0.0.1", 0), _Handler) as httpd:
+        port = httpd.server_address[1]
+        url = f"http://127.0.0.1:{port}/index.html"
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        webbrowser.open_new(url)
+        print(f"Muziek bingo speler draait op {url}")
+        try:
+            threading.Event().wait()
+        except KeyboardInterrupt:
+            print("\nStoppen...")
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+
+
+if __name__ == '__main__':
+    main()
+`;
   const shuffled = shuffle([...tracks]);
   const html = `<!DOCTYPE html>
   <html lang="nl">

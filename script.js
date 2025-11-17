@@ -82,7 +82,7 @@ const PLAY_SNAPSHOT_KEY = 'bingoPlaySnapshot';
 
 let profiles = [];
 
-let state = { ...DEFAULT_STATE };
+let state = normalizeState(DEFAULT_STATE);
 
 let audioState = {
   queue: [],
@@ -107,8 +107,9 @@ function initBuilder() {
   const lastProfileId = localStorage.getItem(LAST_PROFILE_KEY);
   const lastProfile = profiles.find((p) => p.id === lastProfileId);
   if (lastProfile) {
-    state = cloneProfileState(lastProfile.state);
+    state = normalizeState(cloneProfileState(lastProfile.state));
   }
+  state = normalizeState(state);
   titleInput.value = state.title;
   bgColorInput.value = state.bgColor;
   gridSizeSelect.value = String(state.grid);
@@ -129,8 +130,9 @@ function initBuilder() {
 function initPlayer() {
   const snapshot = loadPlaySnapshot();
   if (snapshot?.state) {
-    state = cloneProfileState(snapshot.state);
+    state = normalizeState(cloneProfileState(snapshot.state));
   }
+  state = normalizeState(state);
   if (snapshot?.deck) {
     currentDeck = snapshot.deck;
     playState.count = snapshot.deck.count || playState.count;
@@ -149,8 +151,9 @@ function initPlayer() {
 function initMini() {
   const snapshot = loadPlaySnapshot();
   if (snapshot?.state) {
-    state = cloneProfileState(snapshot.state);
+    state = normalizeState(cloneProfileState(snapshot.state));
   }
+  state = normalizeState(state);
   if (snapshot?.deck) {
     currentDeck = snapshot.deck;
     playState.count = snapshot.deck.count || playState.count;
@@ -232,7 +235,7 @@ function attachListeners() {
       addItem();
     });
   if (resetButton) resetButton.addEventListener('click', resetForm);
-  if (refreshButton) refreshButton.addEventListener('click', () => render());
+  if (refreshButton) refreshButton.addEventListener('click', renderSafe);
   if (exportButton) exportButton.addEventListener('click', openExportDialog);
 
   [exportBackdrop, closeExportButton, cancelExportButton].forEach((node) => {
@@ -470,14 +473,16 @@ function deriveNameFromUrl(url) {
 }
 
 function getPool() {
+  state = normalizeState(state);
   if (state.mode === 'text' && state.useClassicNumbers) {
     return Array.from({ length: 75 }, (_, i) => ({ label: String(i + 1), extra: '', file: null }));
   }
 
+  const items = Array.isArray(state.items) ? state.items : [];
   const unique = [];
   const seen = new Set();
 
-  state.items
+  items
     .map((item) => ({
       label: item.label.trim(),
       extra: item.extra.trim(),
@@ -523,10 +528,45 @@ function cloneProfileState(raw) {
   return base;
 }
 
+function normalizeState(raw = state) {
+  const base = { ...DEFAULT_STATE, ...(raw || {}) };
+  base.grid = Math.max(3, Math.min(7, parseInt(base.grid, 10) || DEFAULT_STATE.grid));
+  base.freeCenter = !!base.freeCenter;
+  base.bgColor = base.bgColor || DEFAULT_STATE.bgColor;
+  base.mode = base.mode || DEFAULT_STATE.mode;
+  base.useClassicNumbers = !!base.useClassicNumbers;
+  base.devMode = !!base.devMode;
+  base.items = Array.isArray(base.items)
+    ? base.items.map((item) => ({
+        label: typeof item?.label === 'string' ? item.label : '',
+        extra: typeof item?.extra === 'string' ? item.extra : '',
+        file: item?.file || null
+      }))
+    : [];
+  return base;
+}
+
 function markDirty() {
   previewDirty = true;
   if (refreshButton) refreshButton.disabled = false;
   if (bingoBoard) bingoBoard.classList.add('stale');
+}
+
+function renderSafe() {
+  try {
+    render();
+  } catch (e) {
+    console.error('Kon de kaart niet herladen', e);
+    if (bingoBoard) {
+      bingoBoard.innerHTML = `
+        <div class="empty-state">
+          <p class="eyebrow">Kon niet herladen</p>
+          <h3>Probeer opnieuw of reset de kaart.</h3>
+        </div>`;
+      bingoBoard.classList.remove('stale');
+    }
+    if (refreshButton) refreshButton.disabled = false;
+  }
 }
 
 function savePlaySnapshot(deck) {
@@ -591,6 +631,7 @@ function buildDeck(count = 1) {
 
 function ensureDeck(count = playState.count || 1) {
   const desired = Math.max(1, count || 1);
+  state = normalizeState(state);
   if (previewDirty || !currentDeck || currentDeck.count !== desired) {
     buildDeck(desired);
     previewDirty = false;
@@ -601,6 +642,7 @@ function ensureDeck(count = playState.count || 1) {
 }
 
 function render() {
+  state = normalizeState(state);
   if (!bingoBoard || !cellTemplate) return;
   if (previewTitle) previewTitle.textContent = state.title || 'Mijn Bingo';
   if (modeBadge) modeBadge.textContent = MODE_COPY[state.mode];

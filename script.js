@@ -24,6 +24,7 @@ const saveProfileButton = document.getElementById('saveProfile');
 const profileNameInput = document.getElementById('profileName');
 const profileList = document.getElementById('profileList');
 const openPlayPageButton = document.getElementById('openPlayPage');
+const openMiniPageButton = document.getElementById('openMiniPage');
 const syncFromEditorButton = document.getElementById('syncFromEditor');
 const exportModal = document.getElementById('exportModal');
 const exportBackdrop = document.getElementById('exportBackdrop');
@@ -140,6 +141,20 @@ function initPlayer() {
   render();
 }
 
+function initMini() {
+  const snapshot = loadPlaySnapshot();
+  if (snapshot?.state) {
+    state = cloneProfileState(snapshot.state);
+  }
+  if (snapshot?.deck) {
+    currentDeck = snapshot.deck;
+    playState.count = snapshot.deck.count || playState.count;
+    previewDirty = false;
+  }
+  attachListeners();
+  renderMiniDeck();
+}
+
 function attachListeners() {
   if (titleInput)
     titleInput.addEventListener('input', () => {
@@ -251,6 +266,14 @@ function attachListeners() {
       savePlaySnapshot(currentDeck);
       const win = window.open('play.html', '_blank');
       if (!win) alert('Sta pop-ups toe om het speelscherm te openen.');
+    });
+
+  if (openMiniPageButton)
+    openMiniPageButton.addEventListener('click', () => {
+      ensureDeck(playState.count || 1);
+      savePlaySnapshot(currentDeck);
+      const win = window.open('minikaart.html', '_blank');
+      if (!win) alert('Sta pop-ups toe om de mini-kaarten te openen.');
     });
 
   if (syncFromEditorButton)
@@ -906,7 +929,10 @@ function renderMiniDeck() {
   if (!baseDeck.length) {
     const p = document.createElement('p');
     p.className = 'muted';
-    p.textContent = 'Nog geen kaarten gegenereerd.';
+    p.textContent =
+      page === 'mini'
+        ? 'Nog geen kaarten gevonden. Open vanuit de editor en synchroniseer.'
+        : 'Nog geen kaarten gegenereerd.';
     miniDeck.appendChild(p);
     return;
   }
@@ -1592,6 +1618,8 @@ if __name__ == '__main__':
 function bootstrap() {
   if (page === 'player') {
     initPlayer();
+  } else if (page === 'mini') {
+    initMini();
   } else {
     initBuilder();
   }

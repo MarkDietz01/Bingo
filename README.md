@@ -10,10 +10,10 @@ Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst,
 5. Afbeelding/audio: voeg items toe via één enkel tekstveld; bij afbeeldingen verschijnt een extra naamveld zodat je een titel bij elke afbeelding kunt zetten. Upload meerdere afbeeldingen tegelijk of kies een bestand per rij.
 6. Muziek: plak een Spotify/YouTube-playlist of regels met `Titel - Artiest`, upload mp3-bestanden (metadata zoals titel/artist wordt automatisch ingevuld), klik "Start muziek bingo" en gebruik "Toon huidig nummer" om de titel/artieste te onthullen. Elk nummer wordt willekeurig en maar één keer afgespeeld.
 7. Alleen kaarten met voldoende unieke items worden gebouwd of geëxporteerd (er verschijnt een melding zodra je nog te weinig items hebt). Gebruik de paarse **Dev Mode**-knop linksboven om deze limiet tijdelijk uit te zetten. De preview vernieuwt pas na een klik op "Herlaad kaart" zodat de kaart niet continu verandert.
-8. Speel direct in de app: vul het aantal kaarten in, klik **Start spel**, gebruik **Trek item** voor een willekeurige trekking (zonder herhalingen) en kijk hoe alle mini-kaarten automatisch markeringen krijgen. De live teller toont hoeveel nummers/afbeeldingen nog over zijn.
+8. Speel direct in de app: vul het aantal kaarten in, klik **Start spel**, gebruik **Trek item** voor een willekeurige trekking (zonder herhalingen) en zie de live teller voor resterende nummers/afbeeldingen.
 9. Gebruik "Exporteer kaart" om een pop-up te openen waar je het totaal aantal kaarten én het aantal kaarten per A4 kiest (werkt voor klassiek, afbeeldingen én muziek). De beeldbingo gebruikt vierkante vakjes in de preview en PDF. Gebruik "Exporteer muziekspeler (.exe)" om een PyInstaller-klaar .py-bestand te krijgen waarin alle mp3's al base64 zijn verpakt.
 10. Klik op **Profielen** om een configuratie op te slaan of later opnieuw te laden; kies een naam, sla op en selecteer het profiel als je verder wilt gaan. "Opnieuw beginnen" reset alle velden en start met twee lege items.
-11. Gebruik **Speelscherm** om een schoon speloverzicht in een nieuw tabblad te openen. De mini-kaarten zijn dezelfde set als je PDF-export, staan onder elkaar en worden automatisch gesynchroniseerd na een druk op de knop "Synchroniseer met editor".
+11. Gebruik **Speelscherm** voor een schoon speloverzicht. Wil je mini-kaarten bekijken? Open de aparte pagina via de knop **Mini-kaarten** (of `minikaart.html`) en klik daar op "Synchroniseer kaarten" voor dezelfde set als de export.
 
 ## Kenmerken
 - Dynamische preview met kleur en titel.
@@ -21,7 +21,7 @@ Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst,
 - Random ingevulde kaart zonder dubbele items; gratis vak in het midden is optioneel.
 - Muziekspeler met shuffle/geen herhalingen, mp3-upload en playlist-import (inclusief Spotify-playlist titels ophalen), plus "reveal"-knop voor de huidige track.
 - Standalone HTML-export van de muziekspeler die alle mp3's precies één keer afspeelt en de laatste drie nummers toont.
-- Live speelmodus met trek-knop, status en mini-kaarten die automatisch meeschakelen zodra een nummer/plaatje is getrokken.
+- Live speelmodus met trek-knop en status, plus een losse mini-kaartpagina die dezelfde deck-export toont.
 - Responsief ontwerp met moderne UI-styling.
 - Profielbeheer via lokale opslag zodat je bingo-opzetten kunt bewaren, opnieuw laden of verwijderen.
 

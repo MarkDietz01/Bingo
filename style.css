@@ -104,6 +104,10 @@ h2 {
   align-items: start;
 }
 
+.play-page.single {
+  grid-template-columns: 1fr;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);

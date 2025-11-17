@@ -264,16 +264,14 @@ function attachListeners() {
     openPlayPageButton.addEventListener('click', () => {
       ensureDeck(playState.count || 1);
       savePlaySnapshot(currentDeck);
-      const win = window.open('play.html', '_blank');
-      if (!win) alert('Sta pop-ups toe om het speelscherm te openen.');
+      window.location.href = 'play.html';
     });
 
   if (openMiniPageButton)
     openMiniPageButton.addEventListener('click', () => {
       ensureDeck(playState.count || 1);
       savePlaySnapshot(currentDeck);
-      const win = window.open('minikaart.html', '_blank');
-      if (!win) alert('Sta pop-ups toe om de mini-kaarten te openen.');
+      window.location.href = 'minikaart.html';
     });
 
   if (syncFromEditorButton)
@@ -1232,13 +1230,26 @@ function extractTitleFromUrl(url) {
 
 async function importAudioFiles(files) {
   const fileArray = Array.from(files || []);
+  if (!fileArray.length) return;
+  if (state.mode !== 'audio') {
+    state.mode = 'audio';
+    if (modeSelect) modeSelect.value = 'audio';
+    toggleModeControls();
+    updateItemPlaceholders();
+  }
   for (const file of fileArray) {
-    const [tag, dataUri] = await Promise.all([readID3v1(file), readAsDataURL(file)]);
+    const [tagV2, tagV1, dataUri] = await Promise.all([
+      readID3v2(file),
+      readID3v1(file),
+      readAsDataURL(file)
+    ]);
+    const tag = tagV2 || tagV1;
     const label = (tag && tag.title) || file.name.replace(/\.[^.]+$/, '');
     const extra = (tag && tag.artist) || 'Upload';
     addItem({ label, extra, file: dataUri });
   }
   mp3Upload.value = '';
+  markDirty();
 }
 
 async function importImageFiles(files) {
@@ -1265,6 +1276,62 @@ function readAsDataURL(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function readID3v2(file) {
+  return new Promise((resolve) => {
+    if (file.size < 10) return resolve(null);
+    const chunkSize = Math.min(file.size, 65535);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const bytes = new Uint8Array(e.target.result);
+      if (bytes[0] !== 0x49 || bytes[1] !== 0x44 || bytes[2] !== 0x33) return resolve(null);
+      const tagSize = (bytes[6] << 21) | (bytes[7] << 14) | (bytes[8] << 7) | bytes[9];
+      const limit = Math.min(bytes.length, 10 + tagSize);
+      let offset = 10;
+      let title = '';
+      let artist = '';
+
+      while (offset + 10 <= limit) {
+        const frameId = String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]);
+        const frameSize =
+          (bytes[offset + 4] << 24) |
+          (bytes[offset + 5] << 16) |
+          (bytes[offset + 6] << 8) |
+          bytes[offset + 7];
+        if (!frameId.trim() || frameSize <= 1) break;
+        const frameStart = offset + 10;
+        const frameEnd = Math.min(frameStart + frameSize, bytes.length);
+        const content = bytes.slice(frameStart, frameEnd);
+        const encoding = content[0] || 0;
+        const text = decodeID3Text(content.slice(1), encoding);
+        if (frameId === 'TIT2' && text) title = text;
+        if (frameId === 'TPE1' && text) artist = text;
+        if (title && artist) break;
+        offset = frameEnd;
+      }
+
+      resolve(title || artist ? { title, artist } : null);
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsArrayBuffer(file.slice(0, chunkSize));
+  });
+}
+
+function decodeID3Text(bytes, encoding) {
+  try {
+    const decoders = {
+      0: new TextDecoder('latin1'),
+      1: new TextDecoder('utf-16'),
+      2: new TextDecoder('utf-16be'),
+      3: new TextDecoder('utf-8')
+    };
+    const decoder = decoders[encoding] || decoders[3];
+    const text = decoder.decode(bytes);
+    return text.replace(/\0+/g, '').trim();
+  } catch (e) {
+    return '';
+  }
 }
 
 function readID3v1(file) {

@@ -18,6 +18,7 @@
       <p class="lede">Kies tussen afbeeldingen, muziek of klassieke bingo. Stel je kaart samen en deel hem direct.</p>
     </div>
     <div class="header-actions">
+      <button id="profileButton" class="ghost">Profielen</button>
       <button id="refreshButton" class="ghost">Herlaad kaart</button>
       <button id="resetButton" class="ghost">Opnieuw beginnen</button>
       <button id="exportButton" class="primary">Exporteer kaart</button>
@@ -172,6 +173,29 @@
       <div class="cell-label"></div>
     </div>
   </template>
+
+  <div class="modal" id="profileModal" aria-hidden="true">
+    <div class="modal-backdrop" id="profileBackdrop"></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Profielen</p>
+          <h3 id="profileTitle">Bewaar of laad een bingo</h3>
+        </div>
+        <button class="icon-button ghost" id="closeProfile" aria-label="Sluit">×</button>
+      </div>
+      <div class="control">
+        <label for="profileName">Naam van profiel</label>
+        <input type="text" id="profileName" placeholder="Vrijdagmiddag vrienden" />
+        <p class="hint">Opslaan maakt een kopie van de huidige titel, instellingen en items.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" id="cancelProfile">Sluiten</button>
+        <button class="primary" id="saveProfile">Opslaan</button>
+      </div>
+      <div class="profile-list" id="profileList"></div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>

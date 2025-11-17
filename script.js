@@ -13,6 +13,14 @@ const devModeButton = document.getElementById('devMode');
 const resetButton = document.getElementById('resetButton');
 const refreshButton = document.getElementById('refreshButton');
 const exportButton = document.getElementById('exportButton');
+const profileButton = document.getElementById('profileButton');
+const profileModal = document.getElementById('profileModal');
+const profileBackdrop = document.getElementById('profileBackdrop');
+const closeProfileButton = document.getElementById('closeProfile');
+const cancelProfileButton = document.getElementById('cancelProfile');
+const saveProfileButton = document.getElementById('saveProfile');
+const profileNameInput = document.getElementById('profileName');
+const profileList = document.getElementById('profileList');
 const exportModal = document.getElementById('exportModal');
 const exportBackdrop = document.getElementById('exportBackdrop');
 const closeExportButton = document.getElementById('closeExport');
@@ -54,6 +62,11 @@ const DEFAULT_STATE = {
   devMode: false
 };
 
+const PROFILE_KEY = 'bingoProfiles';
+const LAST_PROFILE_KEY = 'bingoLastProfile';
+
+let profiles = [];
+
 let state = { ...DEFAULT_STATE };
 
 let audioState = {
@@ -66,6 +79,12 @@ let audioState = {
 let previewDirty = false;
 
 function init() {
+  profiles = loadProfiles();
+  const lastProfileId = localStorage.getItem(LAST_PROFILE_KEY);
+  const lastProfile = profiles.find((p) => p.id === lastProfileId);
+  if (lastProfile) {
+    state = cloneProfileState(lastProfile.state);
+  }
   titleInput.value = state.title;
   bgColorInput.value = state.bgColor;
   gridSizeSelect.value = String(state.grid);
@@ -75,8 +94,7 @@ function init() {
   refreshButton.disabled = true;
   devModeButton.classList.toggle('active', state.devMode);
   attachListeners();
-  addItem();
-  addItem();
+  rebuildItemRows();
   render();
 }
 
@@ -147,6 +165,15 @@ function attachListeners() {
     const perPage = Math.max(1, parseInt(cardsPerPageInput.value, 10) || 1);
     closeExportDialog();
     exportBoard(total, perPage);
+  });
+
+  profileButton.addEventListener('click', openProfileDialog);
+  [profileBackdrop, closeProfileButton, cancelProfileButton].forEach((node) => {
+    if (node) node.addEventListener('click', closeProfileDialog);
+  });
+  saveProfileButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    saveCurrentProfile();
   });
 
   playlistButton.addEventListener('click', () => importPlaylistItems());
@@ -255,6 +282,18 @@ function updateItemPlaceholders() {
   modeBadge.textContent = MODE_COPY[state.mode];
 }
 
+function rebuildItemRows() {
+  const existing = state.items.length ? state.items.slice() : [];
+  state.items = [];
+  itemList.innerHTML = '';
+  if (!existing.length) {
+    addItem();
+    addItem();
+    return;
+  }
+  existing.forEach((item) => addItem({ ...item }));
+}
+
 function parseCombined(value, mode = state.mode) {
   const raw = (value || '').trim();
   if (!raw) return { label: '', extra: '' };
@@ -326,6 +365,35 @@ function getPool() {
     });
 
   return unique;
+}
+
+function loadProfiles() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveProfiles() {
+  try {
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(profiles));
+  } catch (e) {
+    // noop for storage failures
+  }
+}
+
+function cloneProfileState(raw) {
+  const base = { ...DEFAULT_STATE, ...(raw || {}) };
+  base.items = (raw?.items || []).map((item) => ({
+    label: item.label || '',
+    extra: item.extra || '',
+    file: item.file || null
+  }));
+  return base;
 }
 
 function markDirty() {
@@ -492,7 +560,6 @@ function resetForm() {
   audioState = { queue: [], history: [], nowPlaying: null, reveal: false };
   playlistInput.value = '';
   mp3Upload.value = '';
-  itemList.innerHTML = '';
   titleInput.value = state.title;
   gridSizeSelect.value = String(state.grid);
   freeCenterCheckbox.checked = state.freeCenter;
@@ -502,8 +569,7 @@ function resetForm() {
   devModeButton.classList.toggle('active', state.devMode);
   audioPlayer.pause();
   audioPlayer.removeAttribute('src');
-  addItem();
-  addItem();
+  rebuildItemRows();
   render();
 }
 
@@ -518,6 +584,18 @@ function openExportDialog() {
 function closeExportDialog() {
   exportModal.classList.remove('open');
   exportModal.setAttribute('aria-hidden', 'true');
+}
+
+function openProfileDialog() {
+  renderProfileList();
+  profileModal.classList.add('open');
+  profileModal.setAttribute('aria-hidden', 'false');
+  profileNameInput.focus();
+}
+
+function closeProfileDialog() {
+  profileModal.classList.remove('open');
+  profileModal.setAttribute('aria-hidden', 'true');
 }
 
 function exportBoard(totalCards = 2, perPage = 2) {
@@ -544,6 +622,46 @@ function exportBoard(totalCards = 2, perPage = 2) {
   printWindow.document.close();
   printWindow.focus();
   setTimeout(() => printWindow.print(), 300);
+}
+
+function renderProfileList() {
+  profileList.innerHTML = '';
+  if (!profiles.length) {
+    const empty = document.createElement('p');
+    empty.className = 'muted';
+    empty.textContent = 'Nog geen profielen opgeslagen.';
+    profileList.appendChild(empty);
+    return;
+  }
+
+  profiles.forEach((profile) => {
+    const row = document.createElement('div');
+    row.className = 'profile-row';
+    const name = document.createElement('div');
+    name.className = 'profile-name';
+    name.textContent = profile.name;
+    const actions = document.createElement('div');
+    actions.className = 'profile-actions';
+    const useBtn = document.createElement('button');
+    useBtn.className = 'primary ghost';
+    useBtn.textContent = 'Gebruik profiel';
+    useBtn.addEventListener('click', () => applyProfile(profile));
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'ghost';
+    deleteBtn.textContent = 'Verwijder';
+    deleteBtn.addEventListener('click', () => {
+      profiles = profiles.filter((p) => p.id !== profile.id);
+      saveProfiles();
+      renderProfileList();
+    });
+
+    actions.appendChild(useBtn);
+    actions.appendChild(deleteBtn);
+    row.appendChild(name);
+    row.appendChild(actions);
+    profileList.appendChild(row);
+  });
 }
 
 function buildPrintDocument(cards, perPage = 2) {
@@ -918,6 +1036,61 @@ function blobToDataUri(blob) {
     reader.onerror = () => reject();
     reader.readAsDataURL(blob);
   });
+}
+
+function serializeState() {
+  return {
+    title: state.title,
+    mode: state.mode,
+    grid: state.grid,
+    freeCenter: state.freeCenter,
+    bgColor: state.bgColor,
+    items: state.items.map((item) => ({
+      label: item.label || '',
+      extra: item.extra || '',
+      file: item.file || null
+    })),
+    useClassicNumbers: state.useClassicNumbers,
+    devMode: state.devMode
+  };
+}
+
+function saveCurrentProfile() {
+  const name = (profileNameInput.value || '').trim() || 'Nieuw profiel';
+  const existing = profiles.find((p) => p.name.toLowerCase() === name.toLowerCase());
+  const payload = {
+    id: existing?.id || crypto.randomUUID?.() || String(Date.now()),
+    name,
+    state: serializeState()
+  };
+  if (existing) {
+    profiles = profiles.map((p) => (p.id === existing.id ? payload : p));
+  } else {
+    profiles.push(payload);
+  }
+  saveProfiles();
+  localStorage.setItem(LAST_PROFILE_KEY, payload.id);
+  renderProfileList();
+  profileNameInput.value = '';
+}
+
+function applyProfile(profile) {
+  if (!profile) return;
+  state = cloneProfileState(profile.state);
+  titleInput.value = state.title;
+  bgColorInput.value = state.bgColor;
+  gridSizeSelect.value = String(state.grid);
+  freeCenterCheckbox.checked = state.freeCenter;
+  modeSelect.value = state.mode;
+  classicSourceSelect.value = state.useClassicNumbers ? 'numbers' : 'custom';
+  devModeButton.classList.toggle('active', state.devMode);
+  playlistInput.value = '';
+  audioPlayer.pause();
+  audioPlayer.removeAttribute('src');
+  rebuildItemRows();
+  render();
+  localStorage.setItem(LAST_PROFILE_KEY, profile.id);
+  closeProfileDialog();
 }
 
 function buildEmbeddedPlayerScript(tracks, title) {

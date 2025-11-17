@@ -27,11 +27,17 @@ Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst,
 
 ## Windows .exe maken
 1. Zorg dat Python is geïnstalleerd en installeer PyInstaller: `pip install pyinstaller`.
-2. Draai het build-commando vanuit de projectmap:
+2. Draai het build-commando vanuit de projectmap. Neem álle HTML-schermen mee (index/play/minikaart), anders werkt het speelscherm niet vanuit de .exe:
    ```bash
-   pyinstaller --noconsole --onefile --add-data "index.html;." --add-data "style.css;." --add-data "script.js;." bingo_desktop.py
+   pyinstaller --noconsole --onefile \
+     --add-data "index.html;." \
+     --add-data "play.html;." \
+     --add-data "minikaart.html;." \
+     --add-data "style.css;." \
+     --add-data "script.js;." \
+     bingo_desktop.py
    ```
-3. Het uitvoerbare bestand staat daarna in `dist/bingo_desktop.exe`. Dubbelklik om de bingo-app in je browser te starten.
+3. Het uitvoerbare bestand staat daarna in `dist/bingo_desktop.exe`. Dubbelklik om de bingo-app in je browser te starten (zowel de bouwer als het speelscherm blijven lokaal bereikbaar).
 
 ### Muziekspeler als enkele .exe
 Gebruik de knop "Exporteer muziekspeler (.exe)" in de UI. Je krijgt een `..._player.py`-bestand waarin alle mp3's zijn meegepakt als base64. Bouw daar een standalone speler van met:

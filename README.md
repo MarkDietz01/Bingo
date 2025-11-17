@@ -13,6 +13,7 @@ Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst,
 8. Speel direct in de app: vul het aantal kaarten in, klik **Start spel**, gebruik **Trek item** voor een willekeurige trekking (zonder herhalingen) en kijk hoe alle mini-kaarten automatisch markeringen krijgen. De live teller toont hoeveel nummers/afbeeldingen nog over zijn.
 9. Gebruik "Exporteer kaart" om een pop-up te openen waar je het totaal aantal kaarten én het aantal kaarten per A4 kiest (werkt voor klassiek, afbeeldingen én muziek). De beeldbingo gebruikt vierkante vakjes in de preview en PDF. Gebruik "Exporteer muziekspeler (.exe)" om een PyInstaller-klaar .py-bestand te krijgen waarin alle mp3's al base64 zijn verpakt.
 10. Klik op **Profielen** om een configuratie op te slaan of later opnieuw te laden; kies een naam, sla op en selecteer het profiel als je verder wilt gaan. "Opnieuw beginnen" reset alle velden en start met twee lege items.
+11. Gebruik **Speelscherm** om een schoon speloverzicht in een nieuw tabblad te openen. De mini-kaarten zijn dezelfde set als je PDF-export, staan onder elkaar en worden automatisch gesynchroniseerd na een druk op de knop "Synchroniseer met editor".
 
 ## Kenmerken
 - Dynamische preview met kleur en titel.

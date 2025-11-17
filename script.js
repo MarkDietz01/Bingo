@@ -1,3 +1,5 @@
+const page = document.body.dataset.page || 'builder';
+
 const itemList = document.getElementById('itemList');
 const itemTemplate = document.getElementById('itemTemplate');
 const cellTemplate = document.getElementById('cellTemplate');
@@ -21,6 +23,8 @@ const cancelProfileButton = document.getElementById('cancelProfile');
 const saveProfileButton = document.getElementById('saveProfile');
 const profileNameInput = document.getElementById('profileName');
 const profileList = document.getElementById('profileList');
+const openPlayPageButton = document.getElementById('openPlayPage');
+const syncFromEditorButton = document.getElementById('syncFromEditor');
 const exportModal = document.getElementById('exportModal');
 const exportBackdrop = document.getElementById('exportBackdrop');
 const closeExportButton = document.getElementById('closeExport');
@@ -70,6 +74,7 @@ const DEFAULT_STATE = {
 
 const PROFILE_KEY = 'bingoProfiles';
 const LAST_PROFILE_KEY = 'bingoLastProfile';
+const PLAY_SNAPSHOT_KEY = 'bingoPlaySnapshot';
 
 let profiles = [];
 
@@ -91,8 +96,9 @@ let playState = {
 };
 
 let previewDirty = false;
+let currentDeck = null;
 
-function init() {
+function initBuilder() {
   profiles = loadProfiles();
   const lastProfileId = localStorage.getItem(LAST_PROFILE_KEY);
   const lastProfile = profiles.find((p) => p.id === lastProfileId);
@@ -115,102 +121,156 @@ function init() {
   render();
 }
 
+function initPlayer() {
+  const snapshot = loadPlaySnapshot();
+  if (snapshot?.state) {
+    state = cloneProfileState(snapshot.state);
+  }
+  if (snapshot?.deck) {
+    currentDeck = snapshot.deck;
+    playState.count = snapshot.deck.count || playState.count;
+    previewDirty = false;
+  } else {
+    previewDirty = true;
+  }
+  if (deckCountInput) deckCountInput.value = String(playState.count || 1);
+  attachListeners();
+  renderMiniDeck();
+  renderDrawState(snapshot?.deck ? 'Nog niet gestart.' : 'Geen kaart gevonden. Synchroniseer vanuit de editor.');
+  render();
+}
+
 function attachListeners() {
-  titleInput.addEventListener('input', () => {
-    state.title = titleInput.value || 'Mijn Bingo';
-    previewTitle.textContent = state.title;
-    markDirty();
-  });
+  if (titleInput)
+    titleInput.addEventListener('input', () => {
+      state.title = titleInput.value || 'Mijn Bingo';
+      if (previewTitle) previewTitle.textContent = state.title;
+      markDirty();
+    });
 
-  bgColorInput.addEventListener('input', () => {
-    state.bgColor = bgColorInput.value;
-    bingoBoard.style.backgroundColor = state.bgColor;
-    markDirty();
-  });
+  if (bgColorInput)
+    bgColorInput.addEventListener('input', () => {
+      state.bgColor = bgColorInput.value;
+      if (bingoBoard) bingoBoard.style.backgroundColor = state.bgColor;
+      markDirty();
+    });
 
-  gridSizeSelect.addEventListener('change', () => {
-    const value = parseInt(gridSizeSelect.value, 10);
-    const clamped = Math.max(3, Math.min(7, value || 3));
-    state.grid = clamped;
-    gridSizeSelect.value = String(clamped);
-    markDirty();
-  });
+  if (gridSizeSelect)
+    gridSizeSelect.addEventListener('change', () => {
+      const value = parseInt(gridSizeSelect.value, 10);
+      const clamped = Math.max(3, Math.min(7, value || 3));
+      state.grid = clamped;
+      gridSizeSelect.value = String(clamped);
+      markDirty();
+    });
 
-  freeCenterCheckbox.addEventListener('change', () => {
-    state.freeCenter = freeCenterCheckbox.checked;
-    markDirty();
-  });
+  if (freeCenterCheckbox)
+    freeCenterCheckbox.addEventListener('change', () => {
+      state.freeCenter = freeCenterCheckbox.checked;
+      markDirty();
+    });
 
-  classicSourceSelect.addEventListener('change', () => {
-    state.useClassicNumbers = classicSourceSelect.value === 'numbers';
-    toggleClassicInputs();
-    markDirty();
-  });
-
-  devModeButton.addEventListener('click', () => {
-    state.devMode = !state.devMode;
-    devModeButton.classList.toggle('active', state.devMode);
-    devModeButton.setAttribute('aria-pressed', state.devMode);
-    render();
-  });
-
-  modeSelect.addEventListener('change', () => {
-    state.mode = modeSelect.value;
-    updateItemPlaceholders();
-    toggleModeControls();
-    markDirty();
-  });
-
-  addItemButton.addEventListener('click', () => {
-    if (state.mode === 'text' && state.useClassicNumbers) {
-      state.useClassicNumbers = false;
-      classicSourceSelect.value = 'custom';
+  if (classicSourceSelect)
+    classicSourceSelect.addEventListener('change', () => {
+      state.useClassicNumbers = classicSourceSelect.value === 'numbers';
       toggleClassicInputs();
-    }
-    addItem();
-  });
-  resetButton.addEventListener('click', resetForm);
-  refreshButton.addEventListener('click', () => render());
-  exportButton.addEventListener('click', openExportDialog);
+      markDirty();
+    });
+
+  if (devModeButton)
+    devModeButton.addEventListener('click', () => {
+      state.devMode = !state.devMode;
+      devModeButton.classList.toggle('active', state.devMode);
+      devModeButton.setAttribute('aria-pressed', state.devMode);
+      render();
+    });
+
+  if (modeSelect)
+    modeSelect.addEventListener('change', () => {
+      state.mode = modeSelect.value;
+      updateItemPlaceholders();
+      toggleModeControls();
+      markDirty();
+    });
+
+  if (addItemButton)
+    addItemButton.addEventListener('click', () => {
+      if (state.mode === 'text' && state.useClassicNumbers) {
+        state.useClassicNumbers = false;
+        classicSourceSelect.value = 'custom';
+        toggleClassicInputs();
+      }
+      addItem();
+    });
+  if (resetButton) resetButton.addEventListener('click', resetForm);
+  if (refreshButton) refreshButton.addEventListener('click', () => render());
+  if (exportButton) exportButton.addEventListener('click', openExportDialog);
 
   [exportBackdrop, closeExportButton, cancelExportButton].forEach((node) => {
     if (node) node.addEventListener('click', closeExportDialog);
   });
-  confirmExportButton.addEventListener('click', (e) => {
-    e.preventDefault();
-    const total = Math.max(1, parseInt(totalCardsInput.value, 10) || 1);
-    const perPage = Math.max(1, parseInt(cardsPerPageInput.value, 10) || 1);
-    closeExportDialog();
-    exportBoard(total, perPage);
-  });
+  if (confirmExportButton)
+    confirmExportButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      const total = Math.max(1, parseInt(totalCardsInput.value, 10) || 1);
+      const perPage = Math.max(1, parseInt(cardsPerPageInput.value, 10) || 1);
+      closeExportDialog();
+      exportBoard(total, perPage);
+    });
 
-  profileButton.addEventListener('click', openProfileDialog);
+  if (profileButton) profileButton.addEventListener('click', openProfileDialog);
   [profileBackdrop, closeProfileButton, cancelProfileButton].forEach((node) => {
     if (node) node.addEventListener('click', closeProfileDialog);
   });
-  saveProfileButton.addEventListener('click', (e) => {
-    e.preventDefault();
-    saveCurrentProfile();
-  });
+  if (saveProfileButton)
+    saveProfileButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      saveCurrentProfile();
+    });
 
-  playlistButton.addEventListener('click', () => importPlaylistItems());
-  exportPlayerButton.addEventListener('click', () => exportMusicPlayer());
-  mp3Upload.addEventListener('change', () => importAudioFiles(mp3Upload.files));
-  bulkImageUpload.addEventListener('change', () => importImageFiles(bulkImageUpload.files));
-  startMusicButton.addEventListener('click', () => startMusicBingo());
-  revealTrackButton.addEventListener('click', () => {
-    audioState.reveal = true;
-    renderNowPlaying();
-  });
+  if (playlistButton) playlistButton.addEventListener('click', () => importPlaylistItems());
+  if (exportPlayerButton) exportPlayerButton.addEventListener('click', () => exportMusicPlayer());
+  if (mp3Upload) mp3Upload.addEventListener('change', () => importAudioFiles(mp3Upload.files));
+  if (bulkImageUpload) bulkImageUpload.addEventListener('change', () => importImageFiles(bulkImageUpload.files));
+  if (startMusicButton) startMusicButton.addEventListener('click', () => startMusicBingo());
+  if (revealTrackButton)
+    revealTrackButton.addEventListener('click', () => {
+      audioState.reveal = true;
+      renderNowPlaying();
+    });
 
-  audioPlayer.addEventListener('ended', () => playNextTrack());
+  if (audioPlayer) audioPlayer.addEventListener('ended', () => playNextTrack());
 
-  startGameButton.addEventListener('click', () => startGame());
-  drawItemButton.addEventListener('click', () => drawNextItem());
-  resetGameButton.addEventListener('click', () => resetGame());
+  if (startGameButton) startGameButton.addEventListener('click', () => startGame());
+  if (drawItemButton) drawItemButton.addEventListener('click', () => drawNextItem());
+  if (resetGameButton) resetGameButton.addEventListener('click', () => resetGame());
+
+  if (openPlayPageButton)
+    openPlayPageButton.addEventListener('click', () => {
+      ensureDeck(playState.count || 1);
+      savePlaySnapshot(currentDeck);
+      const win = window.open('play.html', '_blank');
+      if (!win) alert('Sta pop-ups toe om het speelscherm te openen.');
+    });
+
+  if (syncFromEditorButton)
+    syncFromEditorButton.addEventListener('click', () => {
+      const snapshot = loadPlaySnapshot();
+      if (!snapshot?.deck) {
+        alert('Geen recente kaart gevonden. Open vanuit de editor.');
+        return;
+      }
+      state = cloneProfileState(snapshot.state);
+      currentDeck = snapshot.deck;
+      playState.count = snapshot.deck.count || playState.count;
+      previewDirty = false;
+      render();
+      renderMiniDeck();
+    });
 }
 
 function addItem(data = {}) {
+  if (!itemTemplate || !itemList) return null;
   const node = itemTemplate.content.firstElementChild.cloneNode(true);
   const labelInput = node.querySelector('.item-label');
   const nameInput = node.querySelector('.item-name');
@@ -304,6 +364,7 @@ function updateItemPlaceholders() {
 }
 
 function rebuildItemRows() {
+  if (!itemList || !itemTemplate) return;
   const existing = state.items.length ? state.items.slice() : [];
   state.items = [];
   itemList.innerHTML = '';
@@ -423,31 +484,108 @@ function cloneProfileState(raw) {
 
 function markDirty() {
   previewDirty = true;
-  refreshButton.disabled = false;
-  bingoBoard.classList.add('stale');
+  if (refreshButton) refreshButton.disabled = false;
+  if (bingoBoard) bingoBoard.classList.add('stale');
+}
+
+function savePlaySnapshot(deck) {
+  if (!deck?.hasEnough) return;
+  try {
+    localStorage.setItem(
+      PLAY_SNAPSHOT_KEY,
+      JSON.stringify({
+        state,
+        deck
+      })
+    );
+  } catch (e) {
+    // ignore
+  }
+}
+
+function loadPlaySnapshot() {
+  try {
+    const raw = localStorage.getItem(PLAY_SNAPSHOT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function buildDeck(count = 1) {
+  const desired = Math.max(1, count || 1);
+  const firstCard = composeCard();
+  if (!firstCard.hasEnough) {
+    currentDeck = {
+      hasEnough: false,
+      required: firstCard.required,
+      pool: firstCard.pool,
+      size: firstCard.size,
+      hasCenter: firstCard.hasCenter,
+      cards: [],
+      count: desired
+    };
+    return currentDeck;
+  }
+
+  const cards = [firstCard];
+  for (let i = 1; i < desired; i++) {
+    const next = composeCard(firstCard.pool);
+    cards.push(next.hasEnough ? next : firstCard);
+  }
+
+  currentDeck = {
+    hasEnough: true,
+    required: firstCard.required,
+    pool: firstCard.pool,
+    size: firstCard.size,
+    hasCenter: firstCard.hasCenter,
+    cards,
+    count: desired
+  };
+
+  savePlaySnapshot(currentDeck);
+  return currentDeck;
+}
+
+function ensureDeck(count = playState.count || 1) {
+  const desired = Math.max(1, count || 1);
+  if (previewDirty || !currentDeck || currentDeck.count !== desired) {
+    buildDeck(desired);
+    previewDirty = false;
+    if (refreshButton) refreshButton.disabled = true;
+    if (bingoBoard) bingoBoard.classList.remove('stale');
+  }
+  return currentDeck || buildDeck(desired);
 }
 
 function render() {
-  previewTitle.textContent = state.title || 'Mijn Bingo';
-  modeBadge.textContent = MODE_COPY[state.mode];
+  if (!bingoBoard || !cellTemplate) return;
+  if (previewTitle) previewTitle.textContent = state.title || 'Mijn Bingo';
+  if (modeBadge) modeBadge.textContent = MODE_COPY[state.mode];
   bingoBoard.style.backgroundColor = state.bgColor || '#f5f7fb';
-  modeSelect.value = state.mode;
-  classicSourceSelect.value = state.useClassicNumbers ? 'numbers' : 'custom';
-  gridSizeSelect.value = String(state.grid);
-  devModeButton.classList.toggle('active', state.devMode);
-  devModeButton.setAttribute('aria-pressed', state.devMode);
+  if (modeSelect) modeSelect.value = state.mode;
+  if (classicSourceSelect) classicSourceSelect.value = state.useClassicNumbers ? 'numbers' : 'custom';
+  if (gridSizeSelect) gridSizeSelect.value = String(state.grid);
+  if (devModeButton) {
+    devModeButton.classList.toggle('active', state.devMode);
+    devModeButton.setAttribute('aria-pressed', state.devMode);
+  }
   toggleModeControls();
   toggleClassicInputs();
 
-  const composition = composeCard();
+  const deck = ensureDeck(playState.count || 1);
+  const composition = deck.cards[0] || deck;
   const size = composition.size;
   bingoBoard.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
   const drawnKeys = new Set(playState.drawn.map((item) => itemKey(item)));
 
-  exportButton.disabled = !composition.hasEnough;
-  exportButton.title = composition.hasEnough ? '' : 'Voeg meer items toe voor je exporteert';
+  if (exportButton) {
+    exportButton.disabled = !deck.hasEnough;
+    exportButton.title = deck.hasEnough ? '' : 'Voeg meer items toe voor je exporteert';
+  }
 
-  if (!composition.hasEnough) {
+  if (!deck.hasEnough) {
     bingoBoard.innerHTML = '';
     const warning = document.createElement('div');
     warning.className = 'empty-state';
@@ -460,7 +598,7 @@ function render() {
     bingoBoard.appendChild(warning);
     renderNowPlaying();
     previewDirty = false;
-    refreshButton.disabled = true;
+    if (refreshButton) refreshButton.disabled = true;
     bingoBoard.classList.remove('stale');
     return;
   }
@@ -588,17 +726,21 @@ function resetForm() {
   state = { ...DEFAULT_STATE, devMode: state.devMode, items: [] };
   audioState = { queue: [], history: [], nowPlaying: null, reveal: false };
   playState = { deck: [], drawn: [], remaining: [], active: false, count: playState.count };
-  playlistInput.value = '';
-  mp3Upload.value = '';
-  titleInput.value = state.title;
-  gridSizeSelect.value = String(state.grid);
-  freeCenterCheckbox.checked = state.freeCenter;
-  bgColorInput.value = state.bgColor;
-  modeSelect.value = state.mode;
-  classicSourceSelect.value = 'numbers';
-  devModeButton.classList.toggle('active', state.devMode);
-  audioPlayer.pause();
-  audioPlayer.removeAttribute('src');
+  currentDeck = null;
+  previewDirty = true;
+  if (playlistInput) playlistInput.value = '';
+  if (mp3Upload) mp3Upload.value = '';
+  if (titleInput) titleInput.value = state.title;
+  if (gridSizeSelect) gridSizeSelect.value = String(state.grid);
+  if (freeCenterCheckbox) freeCenterCheckbox.checked = state.freeCenter;
+  if (bgColorInput) bgColorInput.value = state.bgColor;
+  if (modeSelect) modeSelect.value = state.mode;
+  if (classicSourceSelect) classicSourceSelect.value = 'numbers';
+  if (devModeButton) devModeButton.classList.toggle('active', state.devMode);
+  if (audioPlayer) {
+    audioPlayer.pause();
+    audioPlayer.removeAttribute('src');
+  }
   rebuildItemRows();
   renderMiniDeck();
   renderDrawState('Nog niet gestart.');
@@ -631,16 +773,16 @@ function closeProfileDialog() {
 }
 
 function exportBoard(totalCards = 2, perPage = 2) {
-  const firstCard = composeCard();
-  if (!firstCard.hasEnough) {
-    alert(`Voeg minimaal ${firstCard.required} unieke items toe om te exporteren.`);
+  const deck = ensureDeck(totalCards);
+  if (!deck.hasEnough) {
+    alert(`Voeg minimaal ${deck.required} unieke items toe om te exporteren.`);
     return;
   }
 
-  const cards = [];
-  for (let i = 0; i < totalCards; i++) {
-    const card = composeCard(firstCard.pool);
-    cards.push(card.hasEnough ? card : firstCard);
+  const cards = deck.cards.slice(0, totalCards);
+  while (cards.length < totalCards) {
+    const extra = composeCard(deck.pool);
+    cards.push(extra.hasEnough ? extra : deck.cards[0]);
   }
 
   const printHtml = buildPrintDocument(cards, perPage);
@@ -661,22 +803,18 @@ function startGame() {
   playState.count = desiredCount;
   deckCountInput.value = String(desiredCount);
 
-  const firstCard = composeCard();
-  if (!firstCard.hasEnough) {
+  const deckData = ensureDeck(desiredCount);
+  if (!deckData.hasEnough) {
     renderDrawState('Voeg genoeg unieke items toe (of zet Dev Mode aan) om te starten.');
     return;
   }
 
-  const deck = [];
-  for (let i = 0; i < desiredCount; i++) {
-    const card = composeCard(firstCard.pool);
-    deck.push(buildPlayableCard(card.hasEnough ? card : firstCard));
-  }
+  const deck = deckData.cards.map((card) => buildPlayableCard(card));
 
   playState = {
     deck,
     drawn: [],
-    remaining: shuffle(firstCard.pool.slice()),
+    remaining: shuffle(deckData.pool.slice()),
     active: true,
     count: desiredCount
   };
@@ -761,7 +899,11 @@ function describeItem(item) {
 function renderMiniDeck() {
   if (!miniDeck) return;
   miniDeck.innerHTML = '';
-  if (!playState.deck.length) {
+  const baseDeck = playState.deck.length
+    ? playState.deck
+    : (currentDeck?.cards || []).map((c) => buildPlayableCard(c));
+
+  if (!baseDeck.length) {
     const p = document.createElement('p');
     p.className = 'muted';
     p.textContent = 'Nog geen kaarten gegenereerd.';
@@ -771,7 +913,7 @@ function renderMiniDeck() {
 
   const drawnKeys = new Set(playState.drawn.map((item) => itemKey(item)));
 
-  playState.deck.forEach((card, idx) => {
+  baseDeck.forEach((card, idx) => {
     const wrap = document.createElement('div');
     wrap.className = 'mini-card';
     const header = document.createElement('header');
@@ -953,11 +1095,12 @@ function escapeHtml(value) {
 }
 
 function toggleModeControls() {
+  if (!musicTools && !classicTools) return;
   const isAudio = state.mode === 'audio';
   const isClassic = state.mode === 'text';
   const isImage = state.mode === 'image';
-  musicTools.style.display = isAudio ? 'block' : 'none';
-  classicTools.style.display = isClassic ? 'block' : 'none';
+  if (musicTools) musicTools.style.display = isAudio ? 'block' : 'none';
+  if (classicTools) classicTools.style.display = isClassic ? 'block' : 'none';
   const uploadLabel = document.getElementById('imageUploadLabel');
   const uploadRow = document.getElementById('imageUploadRow');
   if (uploadLabel) uploadLabel.style.display = isImage ? 'flex' : 'none';
@@ -965,6 +1108,7 @@ function toggleModeControls() {
 }
 
 function toggleClassicInputs() {
+  if (!itemList || !addItemButton || !classicSourceSelect) return;
   const disableCustom = state.mode === 'text' && state.useClassicNumbers;
   itemList.classList.toggle('disabled', disableCustom);
   addItemButton.disabled = false;
@@ -1445,5 +1589,16 @@ if __name__ == '__main__':
     main()`;
 }
 
+function bootstrap() {
+  if (page === 'player') {
+    initPlayer();
+  } else {
+    initBuilder();
+  }
+}
 
-init();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrap);
+} else {
+  bootstrap();
+}

@@ -96,6 +96,14 @@ h2 {
   padding: 0 clamp(16px, 5vw, 48px) 48px;
 }
 
+.play-page {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  padding: 0 clamp(16px, 5vw, 48px) 48px 48px;
+  align-items: start;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -534,9 +542,13 @@ button.full { width: 100%; }
 }
 
 .mini-deck {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+}
+
+.mini-deck.vertical {
+  flex-direction: column;
 }
 
 .mini-card {

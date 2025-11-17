@@ -137,22 +137,18 @@ function attachListeners() {
 function addItem(data = {}) {
   const node = itemTemplate.content.firstElementChild.cloneNode(true);
   const labelInput = node.querySelector('.item-label');
-  const extraInput = node.querySelector('.item-extra');
   const fileInput = node.querySelector('.item-file');
 
-  labelInput.value = data.label || '';
-  extraInput.value = data.extra || '';
+  const combined = combineFields(data.label || '', data.extra || '');
+  labelInput.value = combined;
 
-  const item = { label: labelInput.value, extra: extraInput.value, file: data.file || null };
+  const item = { label: data.label || '', extra: data.extra || '', file: data.file || null };
   state.items.push(item);
 
   labelInput.addEventListener('input', () => {
-    item.label = labelInput.value;
-    markDirty();
-  });
-
-  extraInput.addEventListener('input', () => {
-    item.extra = extraInput.value;
+    const parsed = parseCombined(labelInput.value);
+    item.label = parsed.label;
+    item.extra = parsed.extra;
     markDirty();
   });
 
@@ -179,20 +175,16 @@ function addItem(data = {}) {
 }
 
 function updateItemPlaceholders() {
-  const labelPH = state.mode === 'text' ? 'Omschrijving' : 'Titel';
-  const extraPH = {
-    text: 'Optioneel extra info',
-    image: 'Afbeeldings-URL (of upload)',
-    audio: 'Artiest (metadata wordt ingevuld) of streaming-URL'
+  const labelPH = {
+    text: 'Item of hint (optioneel: voeg een extra toe met " | " )',
+    image: 'Titel of afbeeldings-URL',
+    audio: 'Titel — artiest of plak een audio-URL'
   }[state.mode];
 
   document.querySelectorAll('.item-label').forEach((input) => {
     input.placeholder = labelPH;
-  });
-
-  document.querySelectorAll('.item-extra').forEach((input) => {
-    input.placeholder = extraPH;
-    input.type = 'text';
+    const parsed = parseCombined(input.value);
+    input.value = combineFields(parsed.label, parsed.extra);
   });
 
   document.querySelectorAll('.item-file').forEach((input) => {
@@ -201,6 +193,50 @@ function updateItemPlaceholders() {
   });
 
   modeBadge.textContent = MODE_COPY[state.mode];
+}
+
+function parseCombined(value, mode = state.mode) {
+  const raw = (value || '').trim();
+  if (!raw) return { label: '', extra: '' };
+
+  if (mode === 'image' && isLikelyUrl(raw)) {
+    return { label: deriveNameFromUrl(raw), extra: raw };
+  }
+
+  const splitter = raw.includes(' — ') ? ' — ' : raw.includes(' - ') ? ' - ' : null;
+  if (splitter) {
+    const [title, ...rest] = raw.split(splitter);
+    return { label: title.trim(), extra: rest.join(splitter).trim() };
+  }
+
+  if (raw.includes(' | ')) {
+    const [first, ...rest] = raw.split(' | ');
+    return { label: first.trim(), extra: rest.join(' | ').trim() };
+  }
+
+  return { label: raw, extra: '' };
+}
+
+function combineFields(label, extra, mode = state.mode) {
+  if (extra) {
+    if (mode === 'audio') return `${label} — ${extra}`;
+    return `${label}${label && extra ? ' | ' : ''}${extra}`;
+  }
+  return label || '';
+}
+
+function isLikelyUrl(value) {
+  return /^https?:\/\//i.test(value) || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(value);
+}
+
+function deriveNameFromUrl(url) {
+  try {
+    const { pathname } = new URL(url);
+    const parts = pathname.split('/').filter(Boolean);
+    return decodeURIComponent(parts[parts.length - 1] || url);
+  } catch (e) {
+    return url;
+  }
 }
 
 function getPool() {
@@ -789,6 +825,7 @@ function blobToDataUri(blob) {
 
 function buildEmbeddedPlayerScript(tracks, title) {
   const playlistJson = JSON.stringify(tracks);
+  const playlistB64 = btoa(unescape(encodeURIComponent(playlistJson)));
   const safeTitle = JSON.stringify(title);
   const htmlTemplate = `<!DOCTYPE html>
 <html lang="nl">
@@ -826,13 +863,22 @@ function buildEmbeddedPlayerScript(tracks, title) {
     </div>
   </div>
   <script>
-    const playlist = $playlist;
-    let queue = [...playlist];
+    const playlistB64 = "$playlistB64";
+    let playlist = null;
+    let queue = [];
     let history = [];
     const audio = document.getElementById('player');
+    audio.preload = 'none';
     const titleEl = document.getElementById('trackTitle');
     const artistEl = document.getElementById('trackArtist');
     const historyEl = document.getElementById('history');
+
+    function ensureQueue() {
+      if (!playlist) {
+        playlist = JSON.parse(atob(playlistB64));
+        queue = playlist.slice();
+      }
+    }
 
     function renderHistory() {
       historyEl.innerHTML = '';
@@ -845,6 +891,7 @@ function buildEmbeddedPlayerScript(tracks, title) {
     }
 
     function nextTrack() {
+      ensureQueue();
       if (!queue.length) {
         titleEl.textContent = 'Playlist klaar';
         artistEl.textContent = '';
@@ -882,16 +929,15 @@ import string
 import threading
 import webbrowser
 
-PLAYLIST_JSON = r'''${playlistJson}'''
+PLAYLIST_B64 = r'''${playlistB64}'''
 TITLE = ${safeTitle}
 
 HTML_TEMPLATE = r"""${htmlTemplate}"""
 
 
 def html_document():
-    playlist = json.dumps(json.loads(PLAYLIST_JSON))
     return string.Template(HTML_TEMPLATE).safe_substitute(
-        playlist=playlist,
+        playlistB64=PLAYLIST_B64,
         title=TITLE,
     )
 

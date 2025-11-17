@@ -44,6 +44,12 @@ const nowPlayingPanel = document.getElementById('nowPlayingPanel');
 const historyPills = document.getElementById('historyPills');
 const audioPlayer = document.getElementById('audioPlayer');
 const bulkImageUpload = document.getElementById('bulkImageUpload');
+const deckCountInput = document.getElementById('deckCount');
+const startGameButton = document.getElementById('startGame');
+const drawItemButton = document.getElementById('drawItem');
+const resetGameButton = document.getElementById('resetGame');
+const drawDisplay = document.getElementById('drawDisplay');
+const miniDeck = document.getElementById('miniDeck');
 
 const MODE_COPY = {
   text: 'Klassiek',
@@ -76,6 +82,14 @@ let audioState = {
   reveal: false
 };
 
+let playState = {
+  deck: [],
+  drawn: [],
+  remaining: [],
+  active: false,
+  count: 4
+};
+
 let previewDirty = false;
 
 function init() {
@@ -93,8 +107,11 @@ function init() {
   classicSourceSelect.value = state.useClassicNumbers ? 'numbers' : 'custom';
   refreshButton.disabled = true;
   devModeButton.classList.toggle('active', state.devMode);
+  if (deckCountInput) deckCountInput.value = String(playState.count);
   attachListeners();
   rebuildItemRows();
+  renderMiniDeck();
+  renderDrawState('Nog niet gestart.');
   render();
 }
 
@@ -187,6 +204,10 @@ function attachListeners() {
   });
 
   audioPlayer.addEventListener('ended', () => playNextTrack());
+
+  startGameButton.addEventListener('click', () => startGame());
+  drawItemButton.addEventListener('click', () => drawNextItem());
+  resetGameButton.addEventListener('click', () => resetGame());
 }
 
 function addItem(data = {}) {
@@ -324,6 +345,10 @@ function combineFields(label, extra, mode = state.mode) {
   return label || '';
 }
 
+function itemKey(item) {
+  return `${(item.label || '').trim().toLowerCase()}|${(item.extra || '').trim().toLowerCase()}|${item.file || ''}`;
+}
+
 function isLikelyUrl(value) {
   return /^https?:\/\//i.test(value) || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(value);
 }
@@ -417,6 +442,7 @@ function render() {
   const composition = composeCard();
   const size = composition.size;
   bingoBoard.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+  const drawnKeys = new Set(playState.drawn.map((item) => itemKey(item)));
 
   exportButton.disabled = !composition.hasEnough;
   exportButton.title = composition.hasEnough ? '' : 'Voeg meer items toe voor je exporteert';
@@ -489,6 +515,9 @@ function render() {
         labelNode.appendChild(small);
       }
     }
+    if (drawnKeys.has(itemKey(cell))) {
+      node.classList.add('called');
+    }
     return node;
   });
 
@@ -558,6 +587,7 @@ function shuffle(arr) {
 function resetForm() {
   state = { ...DEFAULT_STATE, devMode: state.devMode, items: [] };
   audioState = { queue: [], history: [], nowPlaying: null, reveal: false };
+  playState = { deck: [], drawn: [], remaining: [], active: false, count: playState.count };
   playlistInput.value = '';
   mp3Upload.value = '';
   titleInput.value = state.title;
@@ -570,6 +600,8 @@ function resetForm() {
   audioPlayer.pause();
   audioPlayer.removeAttribute('src');
   rebuildItemRows();
+  renderMiniDeck();
+  renderDrawState('Nog niet gestart.');
   render();
 }
 
@@ -622,6 +654,169 @@ function exportBoard(totalCards = 2, perPage = 2) {
   printWindow.document.close();
   printWindow.focus();
   setTimeout(() => printWindow.print(), 300);
+}
+
+function startGame() {
+  const desiredCount = Math.max(1, parseInt(deckCountInput.value, 10) || playState.count || 1);
+  playState.count = desiredCount;
+  deckCountInput.value = String(desiredCount);
+
+  const firstCard = composeCard();
+  if (!firstCard.hasEnough) {
+    renderDrawState('Voeg genoeg unieke items toe (of zet Dev Mode aan) om te starten.');
+    return;
+  }
+
+  const deck = [];
+  for (let i = 0; i < desiredCount; i++) {
+    const card = composeCard(firstCard.pool);
+    deck.push(buildPlayableCard(card.hasEnough ? card : firstCard));
+  }
+
+  playState = {
+    deck,
+    drawn: [],
+    remaining: shuffle(firstCard.pool.slice()),
+    active: true,
+    count: desiredCount
+  };
+
+  renderMiniDeck();
+  renderDrawState('Spel gestart. Klik op Trek item.');
+  render();
+}
+
+function drawNextItem() {
+  if (!playState.active || !playState.deck.length) {
+    startGame();
+    return;
+  }
+
+  if (!playState.remaining.length) {
+    renderDrawState('Alle items zijn geweest. Reset om opnieuw te starten.');
+    return;
+  }
+
+  const next = playState.remaining.pop();
+  playState.drawn.push(next);
+  markDeckForItem(next);
+  renderMiniDeck();
+  renderDrawState(null, next);
+  render();
+}
+
+function resetGame() {
+  playState = { deck: [], drawn: [], remaining: [], active: false, count: playState.count || 1 };
+  renderMiniDeck();
+  renderDrawState('Nog niet gestart.');
+  render();
+}
+
+function renderDrawState(message, item) {
+  if (!drawDisplay) return;
+  drawDisplay.innerHTML = '';
+  const label = document.createElement('div');
+  label.className = 'draw-label';
+  label.textContent = item ? describeItem(item) : message || 'Nog niet gestart.';
+  const stats = document.createElement('div');
+  stats.className = 'draw-muted';
+  stats.textContent = playState.active
+    ? `${playState.drawn.length} getrokken • ${playState.remaining.length} over`
+    : '0 getrokken';
+  drawDisplay.appendChild(label);
+  drawDisplay.appendChild(stats);
+}
+
+function buildPlayableCard(card) {
+  const cells = card.cells.map((cell) => {
+    if (cell.type !== 'item') return { ...cell };
+    return { ...cell, called: false, key: itemKey(cell) };
+  });
+  const callable = cells.filter((c) => c.type === 'item').length;
+  return { size: card.size, cells, callable, calledCount: 0 };
+}
+
+function markDeckForItem(item) {
+  const key = itemKey(item);
+  playState.deck.forEach((card) => {
+    card.cells.forEach((cell) => {
+      if (cell.type === 'item' && (cell.key === key || itemKey(cell) === key)) {
+        cell.called = true;
+      }
+    });
+    card.calledCount = card.cells.filter((c) => c.type === 'item' && c.called).length;
+  });
+}
+
+function describeItem(item) {
+  if (state.mode === 'audio') {
+    return item.extra ? `${item.label} — ${item.extra}` : item.label || 'Onbekend nummer';
+  }
+  if (state.mode === 'image') {
+    return item.label || deriveNameFromUrl(item.file || item.extra || 'Afbeelding');
+  }
+  return combineFields(item.label, item.extra) || 'Onbekend item';
+}
+
+function renderMiniDeck() {
+  if (!miniDeck) return;
+  miniDeck.innerHTML = '';
+  if (!playState.deck.length) {
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = 'Nog geen kaarten gegenereerd.';
+    miniDeck.appendChild(p);
+    return;
+  }
+
+  const drawnKeys = new Set(playState.drawn.map((item) => itemKey(item)));
+
+  playState.deck.forEach((card, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'mini-card';
+    const header = document.createElement('header');
+    const title = document.createElement('div');
+    title.innerHTML = `<p class="eyebrow">Kaart ${idx + 1}</p><strong>${escapeHtml(state.title || 'Bingo')}</strong>`;
+    const status = document.createElement('span');
+    status.className = 'pill';
+    status.textContent = `${card.calledCount}/${card.callable} geraakt`;
+    header.appendChild(title);
+    header.appendChild(status);
+
+    const grid = document.createElement('div');
+    grid.className = 'mini-grid';
+    grid.style.gridTemplateColumns = `repeat(${card.size}, 1fr)`;
+
+    card.cells.forEach((cell) => {
+      const cellDiv = document.createElement('div');
+      cellDiv.className = 'cell';
+      if (cell.type === 'center') {
+        cellDiv.classList.add('free');
+        cellDiv.textContent = 'Gratis';
+      } else if (cell.type === 'empty') {
+        cellDiv.classList.add('empty');
+        cellDiv.textContent = 'Leeg';
+      } else {
+        if (state.mode === 'image' && (cell.file || cell.extra)) {
+          const img = document.createElement('img');
+          img.src = cell.file || cell.extra;
+          img.alt = cell.label || 'Bingo item';
+          cellDiv.appendChild(img);
+        }
+        const text = document.createElement('div');
+        text.className = 'cell-label';
+        text.textContent = describeItem(cell);
+        cellDiv.appendChild(text);
+        const hit = cell.called || drawnKeys.has(cell.key || itemKey(cell));
+        if (hit) cellDiv.classList.add('called');
+      }
+      grid.appendChild(cellDiv);
+    });
+
+    wrap.appendChild(header);
+    wrap.appendChild(grid);
+    miniDeck.appendChild(wrap);
+  });
 }
 
 function renderProfileList() {

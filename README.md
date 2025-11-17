@@ -3,7 +3,7 @@
 Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst, afbeeldingen of muziek en vul de kaart met eigen items.
 
 ## Gebruik
-1. Open `index.html` in je browser.
+1. Open `menu.html` in je browser of start de .exe; kies daarna **Bingo** of **Memory**.
 2. Kies het type bingo (klassiek, afbeeldingen of muziek).
 3. Stel het formaat (3x3 tot 7x7), de achtergrondkleur en optioneel een vrije center in.
 4. Klassiek: gebruik standaard de 1-75 nummers of vink dit uit om eigen teksten te gebruiken. Elke kaart krijgt unieke nummers.
@@ -15,6 +15,7 @@ Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst,
 10. Gebruik "Exporteer kaart" op de startpagina om een pop-up te openen waar je het totaal aantal kaarten én het aantal kaarten per A4 kiest (werkt voor klassiek, afbeeldingen én muziek). De beeldbingo gebruikt vierkante vakjes in de preview en PDF. Gebruik "Exporteer muziekspeler (.exe)" om een PyInstaller-klaar .py-bestand te krijgen waarin alle mp3's al base64 zijn verpakt.
 11. Klik op **Profielen** om een configuratie op te slaan of later opnieuw te laden; kies een naam, sla op en selecteer het profiel als je verder wilt gaan. "Opnieuw beginnen" reset alle velden en start met twee lege items.
 12. Wil je mini-kaarten bekijken? Open de aparte pagina via de knop **Mini-kaarten** (of `minikaart.html`) en klik daar op "Synchroniseer kaarten" voor dezelfde set als de export.
+13. Memory maker: ga via het hoofdmenu naar `memory.html`, voeg paren toe met een aparte A/B-kaart (vraag/antwoord), sleep de rijen om te herschikken, en exporteer de set naar PDF. Elke set krijgt automatisch een START-kaart en een EINDE-kaart bovenop je paren.
 
 ## Snelle PDF-configuratie
 - In de editor: klik **Exporteer kaart**, vul het totaal aantal kaarten en de kaarten per A4 in en kies "Maak PDF".
@@ -31,18 +32,22 @@ Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst,
 - PDF-export die altijd de live deck gebruikt (ook vanuit het speelscherm) voor consistente kaarten tussen spel en print.
 - Responsief ontwerp met moderne UI-styling.
 - Profielbeheer via lokale opslag zodat je bingo-opzetten kunt bewaren, opnieuw laden of verwijderen.
+- Memory-maker in dezelfde stijl, met drag & drop-volgorde, aparte A/B-kaarten per paar, vaste START/EINDE-kaarten en directe PDF-export.
 
 ## Windows .exe maken
 1. Zorg dat Python is geïnstalleerd en installeer PyInstaller: `pip install pyinstaller`.
-2. Draai het build-commando vanuit de projectmap. Neem álle HTML-schermen mee (index/play/minikaart), anders werkt het speelscherm niet vanuit de .exe:
+2. Draai het build-commando vanuit de projectmap. Neem álle HTML-schermen mee (menu/bingo/play/minikaart/memory) én beide scripts, anders werken menu en speelscherm niet vanuit de .exe:
    ```bash
    pyinstaller --noconsole --onefile \
-     --add-data "index.html;." \
-     --add-data "play.html;." \
-     --add-data "minikaart.html;." \
-     --add-data "style.css;." \
-     --add-data "script.js;." \
-     bingo_desktop.py
+    --add-data "menu.html;." \
+    --add-data "index.html;." \
+    --add-data "play.html;." \
+    --add-data "minikaart.html;." \
+    --add-data "memory.html;." \
+    --add-data "style.css;." \
+    --add-data "script.js;." \
+    --add-data "memory.js;." \
+    bingo_desktop.py
    ```
 3. Het uitvoerbare bestand staat daarna in `dist/bingo_desktop.exe`. Dubbelklik om de bingo-app in je browser te starten (zowel de bouwer als het speelscherm blijven lokaal bereikbaar).
 
@@ -63,3 +68,4 @@ De resulterende `muziek_bingo_player.exe` bevat alle nummers; geen losse mp3-bes
 ## Tests
 - `node --check script.js`
 - `python -m py_compile bingo_desktop.py`
+- `node --check memory.js`

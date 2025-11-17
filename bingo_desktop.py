@@ -47,7 +47,7 @@ def run_server() -> None:
 
     with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
         port = httpd.server_address[1]
-        url = f"http://127.0.0.1:{port}/index.html"
+        url = f"http://127.0.0.1:{port}/menu.html"
         print(f"Bingo Studio draait op {url}")
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         webbrowser.open_new(url)

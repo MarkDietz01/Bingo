@@ -49,6 +49,24 @@
           </div>
         </div>
         <div class="draw-display" id="drawDisplay">Nog niet gestart.</div>
+        <div class="play-export">
+          <div>
+            <p class="eyebrow">PDF export</p>
+            <p class="muted">Download exact dezelfde kaarten als het live spel in een printklare PDF.</p>
+          </div>
+          <div class="play-export-controls">
+            <label class="inline-input">
+              <span>Kaarten totaal</span>
+              <input type="number" id="playTotalCards" min="1" value="4" disabled />
+            </label>
+            <label class="inline-input">
+              <span>Kaarten per A4</span>
+              <input type="number" id="playCardsPerPage" min="1" value="2" />
+            </label>
+            <button id="playExport" class="primary">Download PDF</button>
+          </div>
+          <p class="hint">Pas "Kaarten per A4" aan en download direct; het totaal wordt automatisch uit het spel overgenomen.</p>
+        </div>
       </div>
     </section>
   </main>

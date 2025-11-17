@@ -33,6 +33,9 @@ const confirmExportButton = document.getElementById('confirmExport');
 const cancelExportButton = document.getElementById('cancelExport');
 const totalCardsInput = document.getElementById('totalCards');
 const cardsPerPageInput = document.getElementById('cardsPerPage');
+const playExportButton = document.getElementById('playExport');
+const playCardsPerPageInput = document.getElementById('playCardsPerPage');
+const playTotalCardsInput = document.getElementById('playTotalCards');
 const classicSourceSelect = document.getElementById('classicSourceSelect');
 const addItemButton = document.getElementById('addItem');
 const classicTools = document.getElementById('classicTools');
@@ -115,6 +118,7 @@ function initBuilder() {
   refreshButton.disabled = true;
   devModeButton.classList.toggle('active', state.devMode);
   if (deckCountInput) deckCountInput.value = String(playState.count);
+  if (playTotalCardsInput) playTotalCardsInput.value = String(playState.count);
   attachListeners();
   rebuildItemRows();
   renderMiniDeck();
@@ -135,6 +139,7 @@ function initPlayer() {
     previewDirty = true;
   }
   if (deckCountInput) deckCountInput.value = String(playState.count || 1);
+  if (playTotalCardsInput) playTotalCardsInput.value = String(playState.count || 1);
   attachListeners();
   renderMiniDeck();
   renderDrawState(snapshot?.deck ? 'Nog niet gestart.' : 'Geen kaart gevonden. Synchroniseer vanuit de editor.');
@@ -208,6 +213,15 @@ function attachListeners() {
       markDirty();
     });
 
+  if (deckCountInput)
+    deckCountInput.addEventListener('input', () => {
+      const desired = Math.max(1, parseInt(deckCountInput.value, 10) || 1);
+      deckCountInput.value = String(desired);
+      playState.count = desired;
+      if (playTotalCardsInput) playTotalCardsInput.value = String(desired);
+      markDirty();
+    });
+
   if (addItemButton)
     addItemButton.addEventListener('click', () => {
       if (state.mode === 'text' && state.useClassicNumbers) {
@@ -259,6 +273,12 @@ function attachListeners() {
   if (startGameButton) startGameButton.addEventListener('click', () => startGame());
   if (drawItemButton) drawItemButton.addEventListener('click', () => drawNextItem());
   if (resetGameButton) resetGameButton.addEventListener('click', () => resetGame());
+  if (playExportButton)
+    playExportButton.addEventListener('click', () => {
+      const desiredCards = Math.max(1, parseInt(deckCountInput.value, 10) || 1);
+      const perPage = Math.max(1, parseInt(playCardsPerPageInput?.value, 10) || 2);
+      exportBoard(desiredCards, perPage, true);
+    });
 
   if (openPlayPageButton)
     openPlayPageButton.addEventListener('click', () => {
@@ -592,6 +612,7 @@ function render() {
     devModeButton.classList.toggle('active', state.devMode);
     devModeButton.setAttribute('aria-pressed', state.devMode);
   }
+  if (playTotalCardsInput) playTotalCardsInput.value = String(playState.count || currentDeck?.count || 1);
   toggleModeControls();
   toggleClassicInputs();
 
@@ -769,7 +790,7 @@ function resetForm() {
 }
 
 function openExportDialog() {
-  totalCardsInput.value = totalCardsInput.value || '2';
+  totalCardsInput.value = deckCountInput?.value || totalCardsInput.value || '2';
   cardsPerPageInput.value = cardsPerPageInput.value || '2';
   exportModal.classList.add('open');
   exportModal.setAttribute('aria-hidden', 'false');
@@ -793,12 +814,31 @@ function closeProfileDialog() {
   profileModal.setAttribute('aria-hidden', 'true');
 }
 
-function exportBoard(totalCards = 2, perPage = 2) {
-  const deck = ensureDeck(totalCards);
+function resolveDeckForExport(totalCards = 2, preferExisting = false) {
+  const desired = Math.max(1, totalCards || 1);
+  const useCurrent =
+    preferExisting && currentDeck && !previewDirty && (currentDeck.count === desired || !currentDeck.count);
+  const baseDeck = useCurrent ? currentDeck : ensureDeck(desired);
+  if (!baseDeck?.hasEnough) return baseDeck;
+
+  const cards = baseDeck.cards.slice(0, desired);
+
+  while (cards.length < desired) {
+    const extra = preferExisting ? baseDeck.cards[cards.length % baseDeck.cards.length] : composeCard(baseDeck.pool);
+    cards.push(extra.hasEnough ? extra : baseDeck.cards[0]);
+  }
+
+  return { ...baseDeck, cards, count: desired };
+}
+
+function exportBoard(totalCards = 2, perPage = 2, preferExisting = false) {
+  const deck = resolveDeckForExport(totalCards, preferExisting);
   if (!deck.hasEnough) {
     alert(`Voeg minimaal ${deck.required} unieke items toe om te exporteren.`);
     return;
   }
+
+  savePlaySnapshot(deck);
 
   const cards = deck.cards.slice(0, totalCards);
   while (cards.length < totalCards) {
@@ -823,6 +863,7 @@ function startGame() {
   const desiredCount = Math.max(1, parseInt(deckCountInput.value, 10) || playState.count || 1);
   playState.count = desiredCount;
   deckCountInput.value = String(desiredCount);
+  if (playTotalCardsInput) playTotalCardsInput.value = String(desiredCount);
 
   const deckData = ensureDeck(desiredCount);
   if (!deckData.hasEnough) {

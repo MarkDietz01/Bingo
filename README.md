@@ -1,0 +1,81 @@
+# Bingo Studio
+
+Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst, afbeeldingen of muziek en vul de kaart met eigen items.
+
+## Gebruik
+1. Open `menu.html` in je browser of start de .exe; kies daarna **Bingo** of **Memory**.
+2. Kies het type bingo (klassiek, afbeeldingen of muziek).
+3. Stel het formaat (3x3 tot 7x7), de achtergrondkleur en optioneel een vrije center in.
+4. Klassiek: gebruik standaard de 1-75 nummers of vink dit uit om eigen teksten te gebruiken. Elke kaart krijgt unieke nummers.
+5. Afbeelding/audio: voeg items toe via één enkel tekstveld; bij afbeeldingen verschijnt een extra naamveld zodat je een titel bij elke afbeelding kunt zetten. Upload meerdere afbeeldingen tegelijk of kies een bestand per rij.
+6. Muziek: plak een Spotify/YouTube-playlist of regels met `Titel - Artiest`, upload mp3-bestanden (metadata zoals titel/artist wordt automatisch ingevuld), klik "Start muziek bingo" en gebruik "Toon huidig nummer" om de titel/artieste te onthullen. Elk nummer wordt willekeurig en maar één keer afgespeeld.
+7. Alleen kaarten met voldoende unieke items worden gebouwd of geëxporteerd (er verschijnt een melding zodra je nog te weinig items hebt). Gebruik de paarse **Dev Mode**-knop linksboven om deze limiet tijdelijk uit te zetten. De preview vernieuwt pas na een klik op "Herlaad kaart" zodat de kaart niet continu verandert.
+8. Klik **Speelscherm** om het live spel te openen op een aparte pagina. Daar kies je het aantal kaarten, start je het spel, trek je items zonder herhaling en zie je de teller voor resterende nummers/afbeeldingen.
+9. In het speelscherm staat nu een **Download PDF**-blok. Kies hoeveel kaarten per A4 je wilt; het totaal aantal kaarten volgt automatisch het live spel. De PDF gebruikt exact dezelfde deck als het spel (handig als je met hetzelfde kaartenset speelt en print).
+10. Gebruik "Exporteer kaart" op de startpagina om een pop-up te openen waar je het totaal aantal kaarten én het aantal kaarten per A4 kiest (werkt voor klassiek, afbeeldingen én muziek). De beeldbingo gebruikt vierkante vakjes in de preview en PDF. Gebruik "Exporteer muziekspeler (.exe)" om een PyInstaller-klaar .py-bestand te krijgen waarin alle mp3's al base64 zijn verpakt.
+11. Klik op **Profielen** om een configuratie op te slaan of later opnieuw te laden; kies een naam, sla op en selecteer het profiel als je verder wilt gaan. "Opnieuw beginnen" reset alle velden en start met twee lege items.
+12. Wil je mini-kaarten bekijken? Open de aparte pagina via de knop **Mini-kaarten** (of `minikaart.html`) en klik daar op "Synchroniseer kaarten" voor dezelfde set als de export.
+13. Memory maker: ga via het hoofdmenu naar `memory.html`, voeg paren toe met een aparte A/B-kaart (vraag/antwoord), sleep de rijen om te herschikken, en exporteer de set naar PDF. Elke set krijgt automatisch een START-kaart en een EINDE-kaart bovenop je paren.
+
+## Bestanden-overzicht
+- `menu.html`: hoofdmenu om te kiezen tussen Bingo en Memory.
+- `index.html` + `script.js`: bingo-builder met export, speelscherm-koppeling en muziek/afbeelding/klassiek modes.
+- `play.html`: live speelscherm met PDF-export.
+- `minikaart.html`: losse mini-kaartenviewer die de deck-snapshot toont.
+- `memory.html` + `memory.js`: memory-maker met paren, START/EINDE-kaarten en PDF-export.
+- `style.css`: gedeelde styling voor alle pagina's.
+- `bingo_desktop.py`: desktopstarter voor de .exe die lokaal de pagina's serveert.
+
+## Snelle PDF-configuratie
+- In de editor: klik **Exporteer kaart**, vul het totaal aantal kaarten en de kaarten per A4 in en kies "Maak PDF".
+- Tijdens het spelen: open **Speelscherm**, start het spel of synchroniseer, stel alleen "Kaarten per A4" in en klik **Download PDF** (het totaal wordt uit het spel overgenomen).
+- Beide exportflows gebruiken exact dezelfde deck- en lay-outlogica zodat print en live spel altijd overeenkomen.
+
+## Kenmerken
+- Dynamische preview met kleur en titel.
+- Ondersteuning voor tekst, afbeeldingen (URL/upload) en audio (URL/upload).
+- Random ingevulde kaart zonder dubbele items; gratis vak in het midden is optioneel.
+- Muziekspeler met shuffle/geen herhalingen, mp3-upload en playlist-import (inclusief Spotify-playlist titels ophalen), plus "reveal"-knop voor de huidige track.
+- Standalone HTML-export van de muziekspeler die alle mp3's precies één keer afspeelt en de laatste drie nummers toont.
+- Live speelmodus met trek-knop en status, plus een losse mini-kaartpagina die dezelfde deck-export toont.
+- PDF-export die altijd de live deck gebruikt (ook vanuit het speelscherm) voor consistente kaarten tussen spel en print.
+- Responsief ontwerp met moderne UI-styling.
+- Profielbeheer via lokale opslag zodat je bingo-opzetten kunt bewaren, opnieuw laden of verwijderen.
+- Memory-maker in dezelfde stijl, met drag & drop-volgorde, aparte A/B-kaarten per paar, vaste START/EINDE-kaarten en directe PDF-export.
+
+## Windows .exe maken
+1. Zorg dat Python is geïnstalleerd en installeer PyInstaller: `pip install pyinstaller`.
+2. Draai het build-commando vanuit de projectmap. **Neem alle pagina's en scripts mee** zodat menu, bingo, speelscherm, mini-kaarten en memory ook in de .exe werken:
+   ```bash
+   pyinstaller --noconsole --onefile \
+    --add-data "menu.html;." \
+    --add-data "index.html;." \
+    --add-data "play.html;." \
+    --add-data "minikaart.html;." \
+    --add-data "memory.html;." \
+    --add-data "style.css;." \
+    --add-data "script.js;." \
+    --add-data "memory.js;." \
+    bingo_desktop.py
+   ```
+   Wil je ook assets zoals favicon of extra afbeeldingen toevoegen? Voeg extra `--add-data`-regels toe met dezelfde syntaxis (`"bestand;."`).
+3. Het uitvoerbare bestand staat daarna in `dist/bingo_desktop.exe`. Dubbelklik om de app in je browser te openen; via het hoofdmenu kun je door naar bingo, speelscherm, mini-kaarten en memory.
+
+### Muziekspeler als enkele .exe
+Gebruik de knop "Exporteer muziekspeler (.exe)" in de UI. Je krijgt een `..._player.py`-bestand waarin alle mp3's zijn meegepakt als base64. Bouw daar een standalone speler van met:
+
+```bash
+pyinstaller --noconsole --onefile --name muziek_bingo_player exported_player.py
+```
+
+De resulterende `muziek_bingo_player.exe` bevat alle nummers; geen losse mp3-bestanden nodig.
+
+#### Voorbeeldexport
+1. Kies "Muziek" als bingo-type en upload mp3's of voeg streaming-links toe.
+2. Klik op **Exporteer muziekspeler (.exe)**; download het aangemaakte `..._player.py`-bestand.
+3. Draai in dezelfde map het PyInstaller-commando hierboven (de speler opent daarna vanzelf in de browser).
+
+## Tests
+- `node --check script.js`
+- `python -m py_compile bingo_desktop.py`
+- `node --check memory.js`

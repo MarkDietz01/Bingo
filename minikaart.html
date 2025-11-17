@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bingo Mini-kaarten</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body data-page="mini">
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Bingo Mini-kaarten</p>
+      <h1>Bekijk alle kaarten</h1>
+      <p class="lede">Gebruik hetzelfde kaartendek als je PDF-export, zonder miniaturen in de editor.</p>
+    </div>
+    <div class="header-actions">
+      <a class="ghost" href="index.html">Terug naar editor</a>
+      <button id="syncFromEditor" class="ghost">Synchroniseer kaarten</button>
+    </div>
+  </header>
+
+  <main class="play-page single">
+    <section class="panel column">
+      <div class="preview-header">
+        <div>
+          <p class="eyebrow">Kaartendek</p>
+          <h2>Miniatuur weergave</h2>
+          <p class="muted">Open via de editor, synchroniseer, en bekijk alle kaarten onder elkaar.</p>
+        </div>
+      </div>
+      <div class="mini-deck vertical" id="miniDeck"></div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

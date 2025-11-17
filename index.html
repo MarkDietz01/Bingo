@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bingo Studio</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body data-page="builder">
+  <button id="devMode" class="dev-button" type="button">Dev Mode</button>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Bingo Studio</p>
+      <h1>Maak je eigen bingo</h1>
+      <p class="lede">Kies tussen afbeeldingen, muziek of klassieke bingo. Stel je kaart samen en deel hem direct.</p>
+    </div>
+    <div class="header-actions">
+      <button id="openPlayPage" class="ghost">Speelscherm</button>
+      <button id="profileButton" class="ghost">Profielen</button>
+      <button id="refreshButton" class="ghost">Herlaad kaart</button>
+      <button id="resetButton" class="ghost">Opnieuw beginnen</button>
+      <button id="exportButton" class="primary">Exporteer kaart</button>
+    </div>
+  </header>
+
+  <main class="app-grid">
+    <section class="panel">
+      <h2>Configuratie</h2>
+      <div class="control">
+        <label for="bingoTitle">Titel</label>
+        <input id="bingoTitle" type="text" placeholder="Vrijdagmiddag Bingo" />
+      </div>
+      <div class="control">
+        <label for="modeSelect">Type bingo</label>
+        <div class="select-wrap">
+          <select id="modeSelect">
+            <option value="text">Klassiek</option>
+            <option value="image">Afbeeldingen</option>
+            <option value="audio">Muziek</option>
+          </select>
+        </div>
+      </div>
+      <div class="control" id="classicTools">
+        <p class="label">Klassiek invullen</p>
+        <div class="select-wrap">
+          <select id="classicSourceSelect">
+            <option value="numbers">Nummers 1-75</option>
+            <option value="custom">Eigen items</option>
+          </select>
+        </div>
+        <p class="hint">Gebruik de standaard reeks of kies eigen woorden/vragen.</p>
+      </div>
+      <div class="two-col">
+        <div class="control">
+          <label for="gridSizeSelect">Rij/kolom aantal</label>
+          <div class="select-wrap">
+            <select id="gridSizeSelect">
+              <option value="3">3 x 3</option>
+              <option value="4">4 x 4</option>
+              <option value="5" selected>5 x 5</option>
+              <option value="6">6 x 6</option>
+              <option value="7">7 x 7</option>
+            </select>
+          </div>
+        </div>
+        <div class="control checkbox">
+          <label>
+            <input type="checkbox" id="freeCenter" checked /> Vrije center
+          </label>
+        </div>
+      </div>
+      <div class="control">
+        <label for="bgColor">Achtergrondkleur</label>
+        <input id="bgColor" type="color" value="#f5f7fb" />
+      </div>
+        <div class="control">
+          <label>Invoervelden</label>
+          <div class="input-list" id="itemList"></div>
+          <button id="addItem" class="ghost full">Nieuw item</button>
+          <div class="two-col small-gap stack" id="imageUploadRow">
+            <label class="upload-label" id="imageUploadLabel">
+              <input type="file" id="bulkImageUpload" accept="image/*" multiple />
+              Meerdere afbeeldingen toevoegen
+            </label>
+            <p class="hint">Sleep of selecteer meerdere afbeeldingen tegelijk; er wordt automatisch een rij per bestand gemaakt.</p>
+          </div>
+        </div>
+      <div class="control" id="musicTools" style="display:none;">
+        <label>Muziekbronnen</label>
+        <textarea id="playlistInput" rows="3" placeholder="Plak een Spotify of YouTube playlist-link of regels met 'Titel - Artiest'"></textarea>
+        <div class="two-col small-gap">
+          <button id="importPlaylist" class="ghost">Importeer playlist</button>
+          <label class="upload-label">
+            <input type="file" id="mp3Upload" accept="audio/*" multiple />
+            Upload mp3's
+          </label>
+        </div>
+        <div class="two-col small-gap">
+          <button id="startMusic" class="primary">Start muziek bingo</button>
+          <button id="revealTrack" class="ghost">Toon huidig nummer</button>
+        </div>
+        <button id="exportPlayer" class="full ghost">Exporteer muziekspeler (.exe)</button>
+        <p class="hint">Alle nummers worden willekeurig en éénmalig afgespeeld. Voeg titel & artiest toe voor de bingo kaart en export.</p>
+      </div>
+    </section>
+
+    <section class="panel preview">
+      <div class="preview-header">
+        <div>
+          <p class="eyebrow">Voorbeeld</p>
+          <h2 id="previewTitle">Vrijdagmiddag Bingo</h2>
+        </div>
+        <div class="badge" id="modeBadge">Klassiek</div>
+      </div>
+      <div class="bingo" id="bingoBoard"></div>
+      <div class="play-panel">
+        <div class="play-top">
+          <div>
+            <p class="eyebrow">Speel bingo</p>
+            <p class="muted">Trek willekeurig en markeer automatisch op alle kaarten.</p>
+          </div>
+          <div class="play-actions">
+            <label class="inline-input">
+              <span>Kaarten</span>
+              <input type="number" id="deckCount" min="1" value="4" />
+            </label>
+            <button id="startGame" class="ghost">Start spel</button>
+            <button id="drawItem" class="primary">Trek item</button>
+            <button id="resetGame" class="ghost">Reset spel</button>
+          </div>
+        </div>
+        <div class="draw-display" id="drawDisplay">Nog niet gestart.</div>
+        <div class="mini-deck" id="miniDeck"></div>
+      </div>
+      <div id="nowPlayingPanel" class="now-playing" style="display:none;">
+        <div>
+          <p class="eyebrow">Muziekspeler</p>
+          <p id="nowPlaying" class="now-title">Geen nummer gestart</p>
+          <p id="nowArtist" class="now-artist"></p>
+          <div class="history-block">
+            <p class="eyebrow">Laatste 3 nummers</p>
+            <div id="historyPills" class="pill-row"></div>
+          </div>
+        </div>
+        <audio id="audioPlayer" controls></audio>
+      </div>
+    </section>
+  </main>
+
+  <template id="itemTemplate">
+    <div class="item-row">
+      <div class="row-body">
+        <input class="item-name" type="text" placeholder="Naam bij afbeelding" />
+        <input class="item-label" type="text" placeholder="Omschrijving of titel — artiest" />
+        <input class="item-file" type="file" />
+      </div>
+      <button class="icon-button" aria-label="Verwijder">&times;</button>
+    </div>
+  </template>
+
+  <div class="modal" id="exportModal" aria-hidden="true">
+    <div class="modal-backdrop" id="exportBackdrop"></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Exporteren</p>
+          <h3 id="exportTitle">Kies je PDF-indeling</h3>
+        </div>
+        <button class="icon-button ghost" id="closeExport" aria-label="Sluit">×</button>
+      </div>
+      <div class="control">
+        <label for="totalCards">Totaal aantal kaarten</label>
+        <input type="number" id="totalCards" min="1" value="2" />
+      </div>
+      <div class="control">
+        <label for="cardsPerPage">Kaarten per A4</label>
+        <input type="number" id="cardsPerPage" min="1" value="2" />
+        <p class="hint">Minstens twee kaarten per A4 wordt aangeraden voor beeldbingo.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" id="cancelExport">Annuleren</button>
+        <button class="primary" id="confirmExport">Maak PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <template id="cellTemplate">
+    <div class="cell">
+      <div class="cell-media"></div>
+      <div class="cell-label"></div>
+    </div>
+  </template>
+
+  <div class="modal" id="profileModal" aria-hidden="true">
+    <div class="modal-backdrop" id="profileBackdrop"></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Profielen</p>
+          <h3 id="profileTitle">Bewaar of laad een bingo</h3>
+        </div>
+        <button class="icon-button ghost" id="closeProfile" aria-label="Sluit">×</button>
+      </div>
+      <div class="control">
+        <label for="profileName">Naam van profiel</label>
+        <input type="text" id="profileName" placeholder="Vrijdagmiddag vrienden" />
+        <p class="hint">Opslaan maakt een kopie van de huidige titel, instellingen en items.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" id="cancelProfile">Sluiten</button>
+        <button class="primary" id="saveProfile">Opslaan</button>
+      </div>
+      <div class="profile-list" id="profileList"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

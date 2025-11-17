@@ -13,6 +13,13 @@ const devModeButton = document.getElementById('devMode');
 const resetButton = document.getElementById('resetButton');
 const refreshButton = document.getElementById('refreshButton');
 const exportButton = document.getElementById('exportButton');
+const exportModal = document.getElementById('exportModal');
+const exportBackdrop = document.getElementById('exportBackdrop');
+const closeExportButton = document.getElementById('closeExport');
+const confirmExportButton = document.getElementById('confirmExport');
+const cancelExportButton = document.getElementById('cancelExport');
+const totalCardsInput = document.getElementById('totalCards');
+const cardsPerPageInput = document.getElementById('cardsPerPage');
 const classicSourceSelect = document.getElementById('classicSourceSelect');
 const addItemButton = document.getElementById('addItem');
 const classicTools = document.getElementById('classicTools');
@@ -129,7 +136,18 @@ function attachListeners() {
   });
   resetButton.addEventListener('click', resetForm);
   refreshButton.addEventListener('click', () => render());
-  exportButton.addEventListener('click', exportBoard);
+  exportButton.addEventListener('click', openExportDialog);
+
+  [exportBackdrop, closeExportButton, cancelExportButton].forEach((node) => {
+    if (node) node.addEventListener('click', closeExportDialog);
+  });
+  confirmExportButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    const total = Math.max(1, parseInt(totalCardsInput.value, 10) || 1);
+    const perPage = Math.max(1, parseInt(cardsPerPageInput.value, 10) || 1);
+    closeExportDialog();
+    exportBoard(total, perPage);
+  });
 
   playlistButton.addEventListener('click', () => importPlaylistItems());
   exportPlayerButton.addEventListener('click', () => exportMusicPlayer());
@@ -147,18 +165,37 @@ function attachListeners() {
 function addItem(data = {}) {
   const node = itemTemplate.content.firstElementChild.cloneNode(true);
   const labelInput = node.querySelector('.item-label');
+  const nameInput = node.querySelector('.item-name');
   const fileInput = node.querySelector('.item-file');
 
   const combined = combineFields(data.label || '', data.extra || '');
   labelInput.value = combined;
+  nameInput.value = data.label || '';
 
   const item = { label: data.label || '', extra: data.extra || '', file: data.file || null };
   state.items.push(item);
 
+  nameInput.addEventListener('input', () => {
+    item.label = nameInput.value;
+    markDirty();
+  });
+
   labelInput.addEventListener('input', () => {
+    if (state.mode === 'image') {
+      item.extra = labelInput.value;
+      if (!item.label && item.extra) {
+        const derived = deriveNameFromUrl(item.extra);
+        item.label = derived;
+        nameInput.value = derived;
+      }
+      markDirty();
+      return;
+    }
+
     const parsed = parseCombined(labelInput.value);
     item.label = parsed.label;
     item.extra = parsed.extra;
+    if (!nameInput.value) nameInput.value = item.label;
     markDirty();
   });
 
@@ -176,6 +213,7 @@ function addItem(data = {}) {
   node.querySelector('.icon-button').addEventListener('click', () => {
     state.items = state.items.filter((i) => i !== item);
     node.remove();
+    updateItemPlaceholders();
     markDirty();
   });
 
@@ -187,19 +225,31 @@ function addItem(data = {}) {
 function updateItemPlaceholders() {
   const labelPH = {
     text: 'Item of hint (optioneel: voeg een extra toe met " | " )',
-    image: 'Titel of afbeeldings-URL',
+    image: 'Afbeeldings-URL of omschrijving',
     audio: 'Titel — artiest of plak een audio-URL'
   }[state.mode];
 
-  document.querySelectorAll('.item-label').forEach((input) => {
-    input.placeholder = labelPH;
-    const parsed = parseCombined(input.value);
-    input.value = combineFields(parsed.label, parsed.extra);
-  });
+  const rows = Array.from(itemList.children);
+  rows.forEach((row, idx) => {
+    const input = row.querySelector('.item-label');
+    const nameInput = row.querySelector('.item-name');
+    const fileInput = row.querySelector('.item-file');
+    const item = state.items[idx];
+    if (!item) return;
 
-  document.querySelectorAll('.item-file').forEach((input) => {
-    input.accept = state.mode === 'image' ? 'image/*' : state.mode === 'audio' ? 'audio/*' : '';
-    input.style.display = state.mode === 'text' ? 'none' : 'block';
+    input.placeholder = labelPH;
+    if (state.mode === 'image') {
+      nameInput.style.display = 'block';
+      nameInput.placeholder = 'Naam bij afbeelding';
+      nameInput.value = item.label || '';
+      input.value = item.extra || '';
+    } else {
+      nameInput.style.display = 'none';
+      input.value = combineFields(item.label, item.extra, state.mode);
+    }
+
+    fileInput.accept = state.mode === 'image' ? 'image/*' : state.mode === 'audio' ? 'audio/*' : '';
+    fileInput.style.display = state.mode === 'text' ? 'none' : 'block';
   });
 
   modeBadge.textContent = MODE_COPY[state.mode];
@@ -237,6 +287,10 @@ function combineFields(label, extra, mode = state.mode) {
 
 function isLikelyUrl(value) {
   return /^https?:\/\//i.test(value) || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(value);
+}
+
+function isPlayableSrc(value) {
+  return /^https?:\/\//i.test(value || '') || /^data:audio/i.test(value || '') || /^blob:/i.test(value || '');
 }
 
 function deriveNameFromUrl(url) {
@@ -346,8 +400,8 @@ function render() {
     }
 
     if (state.mode === 'audio') {
-      const audioSrc = cell.file || cell.extra;
-      if (audioSrc) {
+      const audioSrc = cell.file || (isPlayableSrc(cell.extra) ? cell.extra : '');
+      if (isPlayableSrc(audioSrc)) {
         const audio = document.createElement('audio');
         audio.controls = true;
         audio.src = audioSrc;
@@ -355,13 +409,17 @@ function render() {
       }
     }
 
-    labelNode.textContent = cell.label || cell.extra || 'Naamloos item';
-    if (cell.extra && state.mode === 'text') {
-      const small = document.createElement('small');
-      small.textContent = cell.extra;
-      small.style.display = 'block';
-      small.style.color = '#6b7280';
-      labelNode.appendChild(small);
+    if (state.mode === 'audio') {
+      labelNode.textContent = cell.extra ? `${cell.label || 'Naamloos item'} — ${cell.extra}` : cell.label || 'Naamloos item';
+    } else {
+      labelNode.textContent = cell.label || cell.extra || 'Naamloos item';
+      if (cell.extra && state.mode === 'text') {
+        const small = document.createElement('small');
+        small.textContent = cell.extra;
+        small.style.display = 'block';
+        small.style.color = '#6b7280';
+        labelNode.appendChild(small);
+      }
     }
     return node;
   });
@@ -449,16 +507,33 @@ function resetForm() {
   render();
 }
 
-function exportBoard() {
+function openExportDialog() {
+  totalCardsInput.value = totalCardsInput.value || '2';
+  cardsPerPageInput.value = cardsPerPageInput.value || '2';
+  exportModal.classList.add('open');
+  exportModal.setAttribute('aria-hidden', 'false');
+  totalCardsInput.focus();
+}
+
+function closeExportDialog() {
+  exportModal.classList.remove('open');
+  exportModal.setAttribute('aria-hidden', 'true');
+}
+
+function exportBoard(totalCards = 2, perPage = 2) {
   const firstCard = composeCard();
   if (!firstCard.hasEnough) {
     alert(`Voeg minimaal ${firstCard.required} unieke items toe om te exporteren.`);
     return;
   }
 
-  const secondCard = composeCard(firstCard.pool);
-  const cards = [firstCard, secondCard.hasEnough ? secondCard : firstCard];
-  const printHtml = buildPrintDocument(cards);
+  const cards = [];
+  for (let i = 0; i < totalCards; i++) {
+    const card = composeCard(firstCard.pool);
+    cards.push(card.hasEnough ? card : firstCard);
+  }
+
+  const printHtml = buildPrintDocument(cards, perPage);
 
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
@@ -471,12 +546,19 @@ function exportBoard() {
   setTimeout(() => printWindow.print(), 300);
 }
 
-function buildPrintDocument(cards) {
+function buildPrintDocument(cards, perPage = 2) {
   const title = escapeHtml(state.title || 'Bingo');
   const modeLabel = escapeHtml(MODE_COPY[state.mode]);
   const generated = new Date().toLocaleString('nl-NL');
-  const cardsHtml = cards
-    .map((card, idx) => renderCardHtml(card, idx + 1))
+  const pages = [];
+  for (let i = 0; i < cards.length; i += perPage) {
+    pages.push(cards.slice(i, i + perPage));
+  }
+  const pagesHtml = pages
+    .map((page, pageIndex) => {
+      const cardsHtml = page.map((card, idx) => renderCardHtml(card, pageIndex * perPage + idx + 1)).join('');
+      return `<section class="page ${pageIndex === pages.length - 1 ? 'last' : ''}"><div class="print-grid">${cardsHtml}</div></section>`;
+    })
     .join('');
 
   return `<!doctype html>
@@ -491,21 +573,23 @@ function buildPrintDocument(cards) {
     .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; color: #6366f1; font-size: 12px; margin: 0; }
     .muted { color: #6b7280; font-size: 13px; margin: 0 0 16px; }
     .print-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+    .page { page-break-after: always; }
+    .page.last { page-break-after: auto; }
     .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 12px; box-shadow: 0 10px 30px rgba(15,23,42,0.08); page-break-inside: avoid; }
     .card header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     .pill { background: #eef2ff; color: #4f46e5; padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; }
-    .print-board { display: grid; gap: 6px; border: 1px dashed #e5e7eb; border-radius: 12px; padding: 8px; background: ${state.bgColor}; }
-    .cell { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; min-height: 80px; display: grid; place-items: center; text-align: center; }
+    .print-board { display: grid; gap: 6px; border: 1px dashed #e5e7eb; border-radius: 12px; padding: 8px; background: ${state.bgColor}; grid-auto-rows: 1fr; }
+    .cell { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; min-height: 80px; display: grid; place-items: center; text-align: center; aspect-ratio: 1 / 1; }
     .cell.free { background: #eef2ff; color: #4f46e5; font-weight: 700; }
-    .cell img { max-width: 100%; max-height: 120px; border-radius: 8px; object-fit: cover; }
+    .cell img { width: 100%; height: 100%; max-height: 100%; border-radius: 8px; object-fit: cover; }
     .cell small { display: block; color: #6b7280; }
   </style>
 </head>
 <body>
   <p class="eyebrow">Bingo export</p>
   <h1>${title}</h1>
-  <p class="muted">${modeLabel} • ${generated} — minstens 2 kaarten per A4</p>
-  <div class="print-grid">${cardsHtml}</div>
+  <p class="muted">${modeLabel} • ${generated} — totaal ${cards.length} kaarten, ${perPage} per A4</p>
+  <div class="pages">${pagesHtml}</div>
 </body>
 </html>`;
 }
@@ -722,8 +806,8 @@ function getAudioTracks() {
   const pool = getPool();
   return pool.map((track, idx) => ({
     title: track.label || `Track ${idx + 1}`,
-    artist: track.extra || 'Onbekende artiest',
-    src: track.file || track.extra || ''
+    artist: track.extra && !isPlayableSrc(track.extra) ? track.extra : 'Onbekende artiest',
+    src: track.file || (isPlayableSrc(track.extra) ? track.extra : '')
   }));
 }
 

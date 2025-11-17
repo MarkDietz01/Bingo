@@ -132,12 +132,39 @@
   <template id="itemTemplate">
     <div class="item-row">
       <div class="row-body">
+        <input class="item-name" type="text" placeholder="Naam bij afbeelding" />
         <input class="item-label" type="text" placeholder="Omschrijving of titel — artiest" />
         <input class="item-file" type="file" />
       </div>
       <button class="icon-button" aria-label="Verwijder">&times;</button>
     </div>
   </template>
+
+  <div class="modal" id="exportModal" aria-hidden="true">
+    <div class="modal-backdrop" id="exportBackdrop"></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Exporteren</p>
+          <h3 id="exportTitle">Kies je PDF-indeling</h3>
+        </div>
+        <button class="icon-button ghost" id="closeExport" aria-label="Sluit">×</button>
+      </div>
+      <div class="control">
+        <label for="totalCards">Totaal aantal kaarten</label>
+        <input type="number" id="totalCards" min="1" value="2" />
+      </div>
+      <div class="control">
+        <label for="cardsPerPage">Kaarten per A4</label>
+        <input type="number" id="cardsPerPage" min="1" value="2" />
+        <p class="hint">Minstens twee kaarten per A4 wordt aangeraden voor beeldbingo.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" id="cancelExport">Annuleren</button>
+        <button class="primary" id="confirmExport">Maak PDF</button>
+      </div>
+    </div>
+  </div>
 
   <template id="cellTemplate">
     <div class="cell">

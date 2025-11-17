@@ -9,6 +9,7 @@ const modeSelect = document.getElementById('modeSelect');
 const gridSizeSelect = document.getElementById('gridSizeSelect');
 const freeCenterCheckbox = document.getElementById('freeCenter');
 const bgColorInput = document.getElementById('bgColor');
+const devModeButton = document.getElementById('devMode');
 const resetButton = document.getElementById('resetButton');
 const refreshButton = document.getElementById('refreshButton');
 const exportButton = document.getElementById('exportButton');
@@ -42,7 +43,8 @@ const DEFAULT_STATE = {
   freeCenter: true,
   bgColor: '#f5f7fb',
   items: [],
-  useClassicNumbers: true
+  useClassicNumbers: true,
+  devMode: false
 };
 
 let state = { ...DEFAULT_STATE };
@@ -64,6 +66,7 @@ function init() {
   modeSelect.value = state.mode;
   classicSourceSelect.value = state.useClassicNumbers ? 'numbers' : 'custom';
   refreshButton.disabled = true;
+  devModeButton.classList.toggle('active', state.devMode);
   attachListeners();
   addItem();
   addItem();
@@ -100,6 +103,13 @@ function attachListeners() {
     state.useClassicNumbers = classicSourceSelect.value === 'numbers';
     toggleClassicInputs();
     markDirty();
+  });
+
+  devModeButton.addEventListener('click', () => {
+    state.devMode = !state.devMode;
+    devModeButton.classList.toggle('active', state.devMode);
+    devModeButton.setAttribute('aria-pressed', state.devMode);
+    render();
   });
 
   modeSelect.addEventListener('change', () => {
@@ -277,6 +287,8 @@ function render() {
   modeSelect.value = state.mode;
   classicSourceSelect.value = state.useClassicNumbers ? 'numbers' : 'custom';
   gridSizeSelect.value = String(state.grid);
+  devModeButton.classList.toggle('active', state.devMode);
+  devModeButton.setAttribute('aria-pressed', state.devMode);
   toggleModeControls();
   toggleClassicInputs();
 
@@ -368,7 +380,7 @@ function composeCard(poolOverride) {
   const cellCount = size * size;
   const hasCenter = state.freeCenter && size % 2 === 1;
   const usableSlots = hasCenter ? cellCount - 1 : cellCount;
-  const hasEnough = pool.length >= usableSlots;
+  const hasEnough = state.devMode ? true : pool.length >= usableSlots;
 
   if (!hasEnough) {
     return { hasEnough, required: usableSlots, pool, size, cells: [], hasCenter };
@@ -418,7 +430,7 @@ function shuffle(arr) {
 }
 
 function resetForm() {
-  state = { ...DEFAULT_STATE, items: [] };
+  state = { ...DEFAULT_STATE, devMode: state.devMode, items: [] };
   audioState = { queue: [], history: [], nowPlaying: null, reveal: false };
   playlistInput.value = '';
   mp3Upload.value = '';
@@ -429,6 +441,7 @@ function resetForm() {
   bgColorInput.value = state.bgColor;
   modeSelect.value = state.mode;
   classicSourceSelect.value = 'numbers';
+  devModeButton.classList.toggle('active', state.devMode);
   audioPlayer.pause();
   audioPlayer.removeAttribute('src');
   addItem();

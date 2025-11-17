@@ -9,7 +9,7 @@ Een lichte webapp om snel een eigen bingo te maken. Kies tussen klassieke tekst,
 4. Klassiek: gebruik standaard de 1-75 nummers of vink dit uit om eigen teksten te gebruiken. Elke kaart krijgt unieke nummers.
 5. Afbeelding/audio: voeg items toe via tekst + URL, de invoervelden of door bestanden te uploaden. Voor afbeeldingen kun je nu meerdere bestanden tegelijk toevoegen.
 6. Muziek: plak een Spotify/YouTube-playlist of regels met `Titel - Artiest`, upload mp3-bestanden (metadata zoals titel/artist wordt automatisch ingevuld), klik "Start muziek bingo" en gebruik "Toon huidig nummer" om de titel/artieste te onthullen. Elk nummer wordt willekeurig en maar één keer afgespeeld.
-7. Alleen kaarten met voldoende unieke items worden gebouwd of geëxporteerd (er verschijnt een melding zodra je nog te weinig items hebt). De preview vernieuwt pas na een klik op "Herlaad kaart" zodat de kaart niet continu verandert.
+7. Alleen kaarten met voldoende unieke items worden gebouwd of geëxporteerd (er verschijnt een melding zodra je nog te weinig items hebt). Gebruik de paarse **Dev Mode**-knop linksboven om deze limiet tijdelijk uit te zetten. De preview vernieuwt pas na een klik op "Herlaad kaart" zodat de kaart niet continu verandert.
 8. Gebruik "Exporteer kaart" voor een PDF met minstens twee bingokaarten per A4 (werkt voor klassiek, afbeeldingen én muziek). Gebruik "Exporteer muziekspeler (.exe)" om een PyInstaller-klaar .py-bestand te krijgen waarin alle mp3's al base64 zijn verpakt.
 9. "Opnieuw beginnen" reset alle velden en start met twee lege items.
 
